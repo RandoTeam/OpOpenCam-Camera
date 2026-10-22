@@ -1,0 +1,60 @@
+name: Bug report
+description: Report a camera engine, UI or build problem.
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please do not attach personal photos or raw device dumps.
+        Share only logs and derived diagnostics.
+  - type: input
+    id: device
+    attributes:
+      label: Device / build
+      description: Model, Android version, ROM/build number.
+      placeholder: OnePlus 13 PJZ110, Android 16, ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: OpOpenCam version
+      placeholder: 0.1.0-alpha.1
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the app
+        2. Tap the shutter
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logcat
+      description: Filter for OpOpenCamNative / Camera2 NDK / AndroidRuntime.
+      render: text
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: I have not attached personal photos, device dumps or account data.
+          required: true

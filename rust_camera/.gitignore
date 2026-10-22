@@ -1,0 +1,16 @@
+# Rust
+/rust_core/target/
+/rust_core/.cargo/config.toml
+
+# Android / Gradle
+/android_app/.gradle/
+/android_app/build/
+/android_app/app/build/
+/android_app/local.properties
+/android_app/app/src/main/jniLibs/**/*.so
+
+# IDE / OS
+.idea/
+*.iml
+.DS_Store
+Thumbs.db

@@ -1,0 +1,10 @@
+# Copy this file to rust_camera/rust_core/.cargo/config.toml for IDE/manual
+# cargo usage. The build scripts set the equivalent environment variables.
+#
+# Replace <ANDROID_NDK> with your NDK path. On Linux/macOS use
+# toolchains/llvm/prebuilt/linux-x86_64 (or darwin-x86_64) and the clang
+# wrapper without the .cmd suffix.
+
+[target.aarch64-linux-android]
+linker = "<ANDROID_NDK>/toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android35-clang.cmd"
+ar = "<ANDROID_NDK>/toolchains/llvm/prebuilt/windows-x86_64/bin/llvm-ar.exe"

@@ -1,0 +1,31 @@
+[package]
+name = "opopencam"
+version = "0.3.0-alpha.1"
+edition = "2021"
+description = "Rust Camera2 NDK engine for the OpOpenCam hybrid camera"
+license = "MIT"
+
+[lib]
+name = "opopencam"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+log = "0.4.22"
+parking_lot = "0.12.3"
+jpeg-encoder = "0.6"
+thiserror = "1.0.64"
+
+# Android-only: the Camera2 NDK and JNI bridge are not buildable on host.
+[target.'cfg(target_os = "android")'.dependencies]
+jni = { version = "0.21.1", default-features = false }
+android_logger = "0.14.1"
+ndk = "0.9"
+ndk-sys = "0.6"
+libc = "0.2"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = true
