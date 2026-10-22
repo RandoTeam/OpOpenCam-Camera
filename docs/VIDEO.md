@@ -76,7 +76,7 @@ muxes 3 s before + 3 s after and appends the JPEG/XMP. See
 
 - 4K 4:3 30 fps: ✅ stable 30 fps, HEVC 4096×3072, stereo AAC, playable MP4;
   A/V start aligned, audio tail still needs trimming.
-- 4K 16:9 60 fps: stable 60 fps, audio in sync (next).
+- 4K 16:9 60 fps: ? verified at 3840?2160, ~60 fps, ~82 Mbps.
 - 1080p 120 / 720p 60: stable, audio in sync; slow-motion playback correct.
 - 10-bit: correct profile/bit depth/metadata, or documented failure.
 - Long recording: no corruption, no thermal shutdown, file size within budget.

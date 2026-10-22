@@ -1,6 +1,6 @@
 # Status
 
-**Version:** `0.3.0-alpha.1` (versionCode 5)
+**Version:** `0.4.0-alpha.1` (versionCode 6)
 **Date:** 2026-10-22
 **Device:** OnePlus 13 `PJZ110`, Android 16, user 0
 **Package:** `com.oneplus.camera` (JNI class package `com.opopencam.camera`)
@@ -24,7 +24,7 @@
 | Mode/lens restart | same Surface, preview resumes |
 | HAL fallback | unsupported mode falls back to 12 MP JPEG |
 | CI | public GitHub Actions green |
-| Release workflow | `v0.3.0-alpha.1` APK + SHA-256 published |
+| Release workflow | `v0.4.0-alpha.1` APK + SHA-256 published |
 
 ## Research completed
 
@@ -56,7 +56,7 @@
 | 25 MP unavailable | Session accepts a 5888×4416 reader, but the HAL returns 1920×1440 JPEG; rejected by SOF guard. |
 | No Live Photo yet | Motion Photo container exists; video/audio ring buffer not implemented. |
 | 4K 4:3 video verified | 4096×3072 HEVC 30 fps + AAC stereo; A/V tail can be ~0.2–0.5 s longer than video, sync trimming is next. |
-| Video modes not yet | 4K 16:9 60, 1080p 120, 720p 60, front video, 10-bit/HDR, EIS, MediaStore. |
+| Video modes not yet | 1080p 120, 720p 60, front video, 10-bit/HDR, EIS, MediaStore. |
 | No Pro/portrait/macro yet | Manual controls, overlays, bokeh and focus stacking are backlogged. |
 | 4K120 / front 4K unavailable | HAL stream limits; vendor-only upscale/freezes. |
 | Dolby Vision unavailable | Requires Dolby licence and vendor encoder; HDR10/HLG planned. |
@@ -69,7 +69,7 @@
 
 1. DNG calibration workflow (user-supplied profiles).
 2. HDR quality comparison and tuning.
-3. 4K 16:9 60 video; A/V tail trimming; 10-minute thermal test.
+3. A/V tail trimming; 1080p 120; 10-minute thermal test.
 4. Live Photo 6 s / stereo audio.
 5. Pro mode and gallery foundation.
 6. 1080p 120 / 720p 60 / front video.

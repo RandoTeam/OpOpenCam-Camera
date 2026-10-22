@@ -7,7 +7,7 @@ All notable changes to the OpOpenCam Rust camera are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.0-alpha.1] ? 2026-10-22
 
 ### Added
 
@@ -22,8 +22,8 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Known limitations
 
 - Audio tail can be ~0.15?0.2 s longer than video; start PTS is aligned.
-- 4K 16:9 60, 1080p 120, 720p 60, front video, 10-bit/HDR, EIS and MediaStore
-  publication are next.
+- 1080p 120, 720p 60, front video, 10-bit/HDR, EIS and MediaStore publication
+  are next.
 - 25 MP JPEG is closed by evidence: session accepts 5888×4416, capture returns
   1920×1440; no file is written.
 
@@ -148,6 +148,7 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - CameraService still logs a `createStream: 0 x …` diagnostic for one output;
   preview and JPEG capture are unaffected.
 
+[0.4.0-alpha.1]: https://github.com/RandoTeam/OpOpenCam-Camera/releases/tag/v0.4.0-alpha.1
 [0.3.0-alpha.1]: https://github.com/RandoTeam/OpOpenCam-Camera/releases/tag/v0.3.0-alpha.1
 [0.2.2-alpha.1]: https://github.com/RandoTeam/OpOpenCam-Camera/releases/tag/v0.2.2-alpha.1
 [0.2.1-alpha.1]: https://github.com/RandoTeam/OpOpenCam-Camera/releases/tag/v0.2.1-alpha.1

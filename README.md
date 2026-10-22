@@ -3,7 +3,7 @@
 **A rootless, professional camera for the OnePlus 13 — Rust Camera2 engine, Jetpack Compose UI.**
 
 [![Rust Camera CI](https://github.com/RandoTeam/OpOpenCam-Camera/actions/workflows/rust-camera-ci.yml/badge.svg?branch=main)](https://github.com/RandoTeam/OpOpenCam-Camera/actions/workflows/rust-camera-ci.yml)
-[![Version](https://img.shields.io/badge/version-0.3.0--alpha.1-orange)](rust_camera/CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.4.0--alpha.1-orange)](rust_camera/CHANGELOG.md)
 [![Platform](https://img.shields.io/badge/platform-Android%2016%20%7C%20arm64-blue)](https://www.android.com/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 

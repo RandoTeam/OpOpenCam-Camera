@@ -4,7 +4,7 @@
 
 [![Rust Camera CI](https://github.com/RandoTeam/OpOpenCam-Camera/actions/workflows/rust-camera-ci.yml/badge.svg?branch=main)](https://github.com/RandoTeam/OpOpenCam-Camera/actions/workflows/rust-camera-ci.yml)
 [![Local checks](https://img.shields.io/badge/local%20checks-passing-brightgreen)](scripts/check.ps1)
-[![Version](https://img.shields.io/badge/version-0.3.0--alpha.1-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.4.0--alpha.1-orange)](CHANGELOG.md)
 [![Platform](https://img.shields.io/badge/platform-Android%2016%20%7C%20arm64-blue)](https://www.android.com/)
 [![License](https://img.shields.io/badge/license-MIT-green)](../LICENSE)
 
@@ -59,7 +59,7 @@ The first real capture is a 2.8 MB JPEG at 4096×3072 produced by the Rust engin
 saved through the Compose shell. This is an alpha; see [CHANGELOG.md](CHANGELOG.md)
 for known limitations.
 
-### Capture modes (0.3.0-alpha.1)
+### Capture modes (0.4.0-alpha.1)
 
 | Mode | Output | Notes |
 |---|---|---|
