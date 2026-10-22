@@ -51,8 +51,10 @@ Class: `com.opopencam.camera.NativeBridge` (Kotlin `object`).
 | `nativeSetZoom(ratio)` | no | `CONTROL_ZOOM_RATIO` on the repeating request |
 | `nativeIsRunning()` | no | session state |
 
-Planned additions (one feature per PR): `nativeSetMode`, `nativeCaptureHdr`,
-`nativeStartVideo`/`nativeStopVideo`, `nativeStartLivePhoto`/`nativeStopLivePhoto`,
+Active video additions: `nativeStartVideo` / `nativeStopVideo` /
+`nativeIsVideoRunning` (Rust adds the MediaCodec input surface alongside preview).
+
+Planned additions: `nativeStartLivePhoto`/`nativeStopLivePhoto`,
 `nativeSetManualExposure`, `nativeSetFocus`, `nativeGetCapabilities`.
 
 All entry points serialise through a process-global `Mutex<Option<CameraEngine>>`.
@@ -70,8 +72,8 @@ Only one camera client may own the preview surface at a time.
 | `circular_ring_buffer.rs` | reusable | frame ring for ZSL / Live Photo |
 | `capture_modes.rs` | active | 12/50 MP JPEG, RAW, HDR modes |
 | `hdr.rs` | active | YUV conversion, NCC alignment, Mertens fusion, JPEG encoding |
-| `video_encoder` (Kotlin) | planned | MediaCodec HEVC + MediaMuxer |
-| `audio_capture` (Kotlin) | planned | AudioRecord/AAC stereo |
+| `video_encoder` (Kotlin) | active | MediaCodec HEVC + MediaMuxer |
+| `audio_capture` (Kotlin) | active | AudioRecord/AAC stereo |
 | `pro_controls` (Kotlin/Rust) | planned | Manual ISO/shutter/WB/focus + overlays |
 | `filters_lut` (Rust) | planned | 3D LUT + original looks |
 | `portrait` / `macro` (Rust) | planned | Depth/segmentation, focus stack |

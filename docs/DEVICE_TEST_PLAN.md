@@ -104,10 +104,11 @@ Acceptance: 6.0 s clip, stereo audio, 4:3, no A/V drift, file opens as Motion Ph
 Memory estimate: 6 s at 80–120 Mbps ≈ 60–90 MB ring; acceptable, but test thermals.
 
 ### T6 — Video and audio
-1. Record 4K 4:3 30 fps and 4K 16:9 60 fps, HEVC, stereo AAC 256 kbps.
-2. Test 10-bit P010/HDR profile if the encoder accepts it.
-3. Record 10 minutes; measure thermals, dropped frames, file size.
-Acceptance: stable 30/60 fps, no overheating shutdown, audio in sync.
+1. ✅ Record 4K 4:3 30 fps, HEVC, stereo AAC 192 kbps; verified 4096×3072,
+   ~79 Mbps, 16.9 s / 162 MB, rotation −90°, preview restored.
+2. 🚧 Record 4K 16:9 60 fps; test 10-bit P010/HDR profile if the encoder accepts it.
+3. 🚧 Record 10 minutes; measure thermals, dropped frames, file size.
+Acceptance: stable 30/60 fps, no overheating shutdown, A/V tail <50 ms.
 
 ### T7 — UI/UX
 - Smooth zoom wheel, lens chips, shutter animation, capture progress, gallery preview.
@@ -118,7 +119,7 @@ Acceptance: stable 30/60 fps, no overheating shutdown, audio in sync.
 - Metrics: highlight clipping, shadow noise, detail retention, color, file size, capture time.
 
 ### T9 — Full parity features
-- 25 MP probe: 5888×4416 or documented HAL rejection.
+- 25 MP: closed — session accepted 5888×4416, capture returned 1920×1440; no file.
 - 10-bit HEIF / Ultra HDR: bit depth/gainmap verified by a reader.
 - Pro mode: manual ISO/shutter/WB/focus, histogram/level/peaking, JPEG+DNG.
 - Portrait/macro: depth map or segmentation edges; focus stack sharpness.

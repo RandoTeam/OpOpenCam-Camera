@@ -26,7 +26,8 @@ Live Photo implementation with real stereo sound.
 | HDR 3× (NCC alignment + Mertens) | ✅ logical / ultra-wide / tele |
 | Lens switching 0.6× / 1× / 3× | ✅ cameras 3 / 0 / 4 |
 | Preview restart | ✅ ~50 ms |
-| Live Photo / 4K video / stereo audio | 🚧 next milestone |
+| 4K 4:3 / 16:9 video + stereo AAC | ✅ 4096×3072@30 and 3840×2160@60; audio tail trim pending |
+| Live Photo / 1080p120 | 🚧 next milestone |
 | Full stock/OPCameraPro parity | 🚧 mapped in [FEATURE_PARITY.md](docs/FEATURE_PARITY.md) |
 
 Full details: [rust_camera/README.md](rust_camera/README.md),

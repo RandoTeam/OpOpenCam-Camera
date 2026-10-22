@@ -4,14 +4,14 @@
 
 | Mode | Size | FPS | Codec | Status |
 |---|---|---|---|---|
-| 4K 4:3 | 4096×3072 | 30 | HEVC | planned, HAL supports |
-| 4K 16:9 | 3840×2160 | 60 | HEVC | planned, HAL supports |
+| 4K 4:3 | 4096×3072 | 30 | HEVC Main | ✅ verified, ~79 Mbps |
+| 4K 16:9 | 3840×2160 | 60 | HEVC Main | ✅ verified, ~82 Mbps |
 | 1080p | 1920×1080 | 60/120 | HEVC | planned, 120 high-speed |
 | 720p | 1280×720 | 60 | HEVC | planned |
 | 720p slow | 1280×720 | 480 | HEVC | experimental, high-speed |
 | 10-bit | P010 | 30/60 | HEVC Main10 | planned, HAL supports P010 |
 | Front | 3280×2464 max | 30/60 | HEVC | front 1080p120; no native 4K |
-| Audio | 48 kHz | — | AAC-LC stereo 256 kbps | planned |
+| Audio | 48 kHz stereo | — | AAC-LC | ✅ 192 kbps HW; 256 kbps needs SW encoder |
 
 The HAL advertises 4096×3072 @30, 3840×2160 @60, 1080p @120/240/480 and P010 on
 the rear cameras. **4K 120 and native front 4K are not advertised**; the module’s
@@ -36,6 +36,10 @@ flowchart LR
 - MediaMuxer writes the MP4; the UI owns start/stop, pause and naming.
 - Audio uses `AudioRecord` (stereo, 48 kHz); optional sound-focus research uses
   stereo/beamforming, not a vendor microphone API.
+- The current `VideoRecorder` starts with 4096×3072@30 / 80 Mbps / AAC 192 kbps;
+  the encoder reports show HEVC Main at ~79 Mbps and stereo AAC in the file.
+- Known issue: audio tail can be 0.15?0.2 s longer than video. Start PTS is aligned;
+  add audio-tail trimming before beta.
 
 ## Controls
 
@@ -70,8 +74,9 @@ muxes 3 s before + 3 s after and appends the JPEG/XMP. See
 
 ## Acceptance
 
-- 4K 4:3 30 fps: stable 30 fps, audio in sync, playable MP4.
-- 4K 16:9 60 fps: stable 60 fps, audio in sync.
+- 4K 4:3 30 fps: ✅ stable 30 fps, HEVC 4096×3072, stereo AAC, playable MP4;
+  A/V start aligned, audio tail still needs trimming.
+- 4K 16:9 60 fps: stable 60 fps, audio in sync (next).
 - 1080p 120 / 720p 60: stable, audio in sync; slow-motion playback correct.
 - 10-bit: correct profile/bit depth/metadata, or documented failure.
 - Long recording: no corruption, no thermal shutdown, file size within budget.

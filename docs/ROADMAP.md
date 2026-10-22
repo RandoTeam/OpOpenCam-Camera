@@ -34,8 +34,8 @@ Status legend: ✅ verified · 🟡 partial · 🚧 planned · 🟣 research · 
 | M4 | HDR 3× + NCC + Mertens | 🟡 pipeline; quality tuning | now |
 | M5 | DNG calibration workflow | 🟡 generic matrix; user profiles | now |
 | M6 | HDR quality on real scenes | 🚧 | now |
-| M7 | Capability probe + 25 MP experiment | 🚧 | now |
-| M8 | 4K 4:3 30 / 4K 16:9 60 video | 🚧 | next |
+| M7 | Capability probe + 25 MP experiment | ✅ probe; 25 MP closed | now |
+| M8 | 4K 4:3 30 / 4K 16:9 60 video | ✅ 4K4:3 + 4K16:9 verified; A/V tail trim pending | next |
 | M9 | 1080p 120 / 720p 60 / front video | 🚧 | next |
 | M10 | Live Photo 6 s + stereo audio | 🚧 | next |
 | M11 | Pro mode: manual controls + overlays | 🚧 | next |
@@ -77,8 +77,9 @@ with acceptable ghosting; latency and thermals recorded.
 
 - Record Camera2 capabilities: still sizes, P010, 4K60, 1080p120, 720p60,
   high-speed, ISO, front limits.
-- One time-boxed 25 MP test: request 5888×4416 JPEG via the same vendor session
-  mode family used by RAW 50. If the HAL returns a smaller JPEG, reject and close.
+- **25 MP is closed by evidence:** the Camera2 session accepts a 5888×4416
+  JPEG reader, but the HAL returns a **1920×1440** JPEG on capture. The SOF guard
+  rejects it. Use 12 MP JPEG or RAW 50; never upscale.
 - Probe 10-bit still HEIF and Ultra HDR paths; do not promise until a file opens.
 - Keep 50 MP JPEG closed; RAW 50 is the maximum-resolution path.
 
@@ -95,13 +96,16 @@ with acceptable ghosting; latency and thermals recorded.
 
 ### M8 — Video core
 
-- 4K 4:3 4096×3072 @30, HEVC.
-- 4K 16:9 3840×2160 @60, HEVC.
-- Stereo AAC 48 kHz 256 kbps.
-- EIS/OIS, bitrate presets, lock lens, lock WB, mic status.
-- 10-minute thermal/dropped-frame test.
+- ✅ 4K 4:3 4096×3072 @30, HEVC Main, ~79 Mbps.
+- ✅ AAC-LC stereo 48 kHz 192 kbps (HW encoder limit; 256 kbps needs the
+  software AAC encoder).
+- 🟡 A/V start is aligned; the audio tail can be ~0.2–0.5 s longer. Add audio-tail
+  trimming before beta.
+- ✅ 4K 16:9 3840×2160 @60, HEVC Main, ~82 Mbps.
+- 🚧 EIS/OIS, bitrate presets, lock lens, lock WB, mic status.
+- 🚧 10-minute thermal/dropped-frame test.
 
-**Done when:** stable recording, A/V sync, playable MP4, no thermal shutdown.
+**Done when:** stable recording, A/V sync <50 ms, playable MP4, no thermal shutdown.
 
 ### M9 — High-frame-rate and front video
 
@@ -207,7 +211,7 @@ save JPEG/DNG.
 
 | Priority | Work |
 |---|---|
-| P0 | DNG calibration, HDR quality, 25 MP probe, CI/release, no fake 50 MP |
+| P0 | DNG calibration, HDR quality, 25 MP closed by evidence, CI/release, no fake 50 MP |
 | P1 | Video core, high-frame-rate, Live Photo, Pro mode, zoom, basic gallery |
 | P2 | Portrait/macro, LUT/filters/watermark, night/long exposure/burst, 10-bit/HDR, editor |
 | P3 | AI/open models, LUT analysis/repo, super-res, niche modes, multi-device |

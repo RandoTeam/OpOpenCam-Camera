@@ -111,11 +111,13 @@ The ring stores **encoded samples**, not raw frames. A raw 6 s 4K 4:3 ring would
 several GB; an 80–120 Mbps HEVC ring is ~60–90 MB. Details:
 [MOTION_PHOTO.md](MOTION_PHOTO.md).
 
-## 4. Video pipeline
+## 4. Video pipeline (active)
 
 - Camera2 video output surface → MediaCodec HEVC.
 - AudioRecord 48 kHz stereo → AAC.
 - MediaMuxer writes MP4.
+- `4K 4:3` is verified on device: HEVC 4096×3072@30, ~79 Mbps, AAC stereo
+  48 kHz/192 kbps, preview restored after stop.
 - Modes:
 
 | Mode | Stream | FPS | Notes |
@@ -232,8 +234,8 @@ A pipeline change is accepted only when:
 
 | Horizon | Pipeline change |
 |---|---|
-| Now | DNG calibration hook, HDR tuning, 25 MP probe, JPEG SOF guard |
-| Next | Video output surface, encoded ring, audio, Motion Photo, Pro mode, zoom |
+| Now | DNG calibration hook, HDR tuning, 25 MP closed, 4K 4:3 video active |
+| Next | 4K16:9 60, A/V tail trim, encoded ring, Motion Photo, Pro mode, zoom |
 | Later | Portrait/macro, LUT/watermark, 10-bit/HDR, gallery/editor, burst/panorama |
 
 See [ROADMAP.md](ROADMAP.md) and [BACKLOG.md](BACKLOG.md).

@@ -34,10 +34,12 @@ const CAPTURE_TIMEOUT: Duration = Duration::from_secs(15);
 
 const TEMPLATE_PREVIEW: u32 = 1;
 const TEMPLATE_STILL_CAPTURE: u32 = 2;
+const TEMPLATE_RECORD: u32 = 3;
 
 // Camera2 metadata tags.
 const TAG_AE_EXPOSURE_COMPENSATION: u32 = 65537;
 const TAG_AE_MODE: u32 = 65539;
+const TAG_AE_TARGET_FPS_RANGE: u32 = 65541;
 const TAG_AF_MODE: u32 = 65543;
 const TAG_AWB_MODE: u32 = 65547;
 const TAG_ZOOM_RATIO: u32 = 65583;
@@ -194,6 +196,13 @@ pub struct CameraEngine {
     capture_mode: CaptureMode,
     still_width: i32,
     still_height: i32,
+    video_window: *mut sys::ANativeWindow,
+    video_output: *mut sys::ACaptureSessionOutput,
+    video_target: *mut sys::ACameraOutputTarget,
+    video_width: i32,
+    video_height: i32,
+    video_fps: i32,
+    video_active: bool,
     camera_id: String,
     running: bool,
 }
@@ -236,10 +245,71 @@ impl CameraEngine {
             capture_mode: mode,
             still_width,
             still_height,
+            video_window: ptr::null_mut(),
+            video_output: ptr::null_mut(),
+            video_target: ptr::null_mut(),
+            video_width: 0,
+            video_height: 0,
+            video_fps: 0,
+            video_active: false,
             camera_id: camera_id.to_string(),
             running: false,
         };
 
+        if let Err(e) = unsafe { engine.open(camera_id) } {
+            engine.shutdown();
+            return Err(e);
+        }
+        Ok(engine)
+    }
+
+    /// Creates a recording session with preview plus a MediaCodec input surface.
+    ///
+    /// The video surface is owned by the engine and released in [`shutdown`].
+    /// Kotlin must keep the MediaCodec and its `Surface` alive until
+    /// [`nativeStopVideo`](crate::bridge) returns.
+    pub fn new_video(
+        preview_window: *mut sys::ANativeWindow,
+        video_window: *mut sys::ANativeWindow,
+        camera_id: &str,
+        width: i32,
+        height: i32,
+        fps: i32,
+    ) -> Result<Self, String> {
+        if width <= 0 || height <= 0 || fps <= 0 {
+            return Err("invalid video dimensions/fps".into());
+        }
+        let still_ctx = Arc::new(StillContext {
+            frames: Mutex::new(Vec::new()),
+            cv: Condvar::new(),
+        });
+        let mut engine = Self {
+            manager: ptr::null_mut(),
+            device: ptr::null_mut(),
+            session: ptr::null_mut(),
+            preview_window,
+            preview_output: ptr::null_mut(),
+            still_output: ptr::null_mut(),
+            still_reader: ptr::null_mut(),
+            output_container: ptr::null_mut(),
+            preview_request: ptr::null_mut(),
+            preview_target: ptr::null_mut(),
+            still_target: ptr::null_mut(),
+            still_ctx_ptr: Arc::as_ptr(&still_ctx) as *mut c_void,
+            still_ctx,
+            capture_mode: CaptureMode::Jpeg12,
+            still_width: 0,
+            still_height: 0,
+            video_window,
+            video_output: ptr::null_mut(),
+            video_target: ptr::null_mut(),
+            video_width: width,
+            video_height: height,
+            video_fps: fps,
+            video_active: true,
+            camera_id: camera_id.to_string(),
+            running: false,
+        };
         if let Err(e) = unsafe { engine.open(camera_id) } {
             engine.shutdown();
             return Err(e);
@@ -300,6 +370,10 @@ impl CameraEngine {
                 "preview output create failed with status {}",
                 preview_status.0
             ));
+        }
+
+        if self.video_active {
+            return self.open_video_session();
         }
 
         let max_images = if self.capture_mode.is_hdr() { 4 } else { 2 };
@@ -494,6 +568,134 @@ impl CameraEngine {
         Ok(())
     }
 
+    unsafe fn open_video_session(&mut self) -> Result<(), String> {
+        if self.video_window.is_null() {
+            return Err("video window is null".into());
+        }
+        info!(
+            "Camera2 NDK: video surface {}x{} reported by ANativeWindow, target {}x{}@{}",
+            sys::ANativeWindow_getWidth(self.video_window),
+            sys::ANativeWindow_getHeight(self.video_window),
+            self.video_width,
+            self.video_height,
+            self.video_fps
+        );
+
+        let video_status =
+            sys::ACaptureSessionOutput_create(self.video_window, &mut self.video_output);
+        if video_status.0 != 0 || self.video_output.is_null() {
+            return Err(format!(
+                "video output create failed with status {}",
+                video_status.0
+            ));
+        }
+
+        let container_status =
+            sys::ACaptureSessionOutputContainer_create(&mut self.output_container);
+        if container_status.0 != 0 || self.output_container.is_null() {
+            return Err(format!(
+                "output container create failed with status {}",
+                container_status.0
+            ));
+        }
+        sys::ACaptureSessionOutputContainer_add(self.output_container, self.preview_output);
+        sys::ACaptureSessionOutputContainer_add(self.output_container, self.video_output);
+
+        let session_callbacks = sys::ACameraCaptureSession_stateCallbacks {
+            context: ptr::null_mut(),
+            onClosed: None,
+            onReady: None,
+            onActive: None,
+        };
+        let session_status = sys::ACameraDevice_createCaptureSession(
+            self.device,
+            self.output_container,
+            &session_callbacks,
+            &mut self.session,
+        );
+        if session_status.0 != 0 || self.session.is_null() {
+            return Err(format!(
+                "video createCaptureSession failed with status {}",
+                session_status.0
+            ));
+        }
+
+        let request_status = sys::ACameraDevice_createCaptureRequest(
+            self.device,
+            sys::ACameraDevice_request_template(TEMPLATE_RECORD),
+            &mut self.preview_request,
+        );
+        if request_status.0 != 0 || self.preview_request.is_null() {
+            return Err(format!(
+                "video request create failed with status {}",
+                request_status.0
+            ));
+        }
+
+        let preview_target_status =
+            sys::ACameraOutputTarget_create(self.preview_window, &mut self.preview_target);
+        if preview_target_status.0 != 0 || self.preview_target.is_null() {
+            return Err(format!(
+                "preview target create failed with status {}",
+                preview_target_status.0
+            ));
+        }
+        let video_target_status =
+            sys::ACameraOutputTarget_create(self.video_window, &mut self.video_target);
+        if video_target_status.0 != 0 || self.video_target.is_null() {
+            return Err(format!(
+                "video target create failed with status {}",
+                video_target_status.0
+            ));
+        }
+        sys::ACaptureRequest_addTarget(self.preview_request, self.preview_target);
+        sys::ACaptureRequest_addTarget(self.preview_request, self.video_target);
+        Self::apply_common_entries(self.preview_request);
+
+        let fps_range = [self.video_fps, self.video_fps];
+        sys::ACaptureRequest_setEntry_i32(
+            self.preview_request,
+            TAG_AE_TARGET_FPS_RANGE,
+            2,
+            fps_range.as_ptr(),
+        );
+
+        let mut seq = 0;
+        let mut repeat_status = sys::ACameraCaptureSession_setRepeatingRequest(
+            self.session,
+            ptr::null_mut(),
+            1,
+            &mut self.preview_request,
+            &mut seq,
+        );
+        for _ in 0..19 {
+            if repeat_status.0 == 0 {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+            repeat_status = sys::ACameraCaptureSession_setRepeatingRequest(
+                self.session,
+                ptr::null_mut(),
+                1,
+                &mut self.preview_request,
+                &mut seq,
+            );
+        }
+        if repeat_status.0 != 0 {
+            return Err(format!(
+                "video setRepeatingRequest failed with status {}",
+                repeat_status.0
+            ));
+        }
+
+        self.running = true;
+        info!(
+            "Camera2 NDK: video session active {}x{}@{} format=surface",
+            self.video_width, self.video_height, self.video_fps
+        );
+        Ok(())
+    }
+
     unsafe fn apply_common_entries(request: *mut sys::ACaptureRequest) {
         let ae = AE_MODE_ON;
         let af = AF_MODE_CONTINUOUS_PICTURE;
@@ -598,6 +800,9 @@ impl CameraEngine {
     /// JPEG/RAW modes write a single file. HDR captures three YUV frames, fuses
     /// them and writes a JPEG. This method blocks until the file is written.
     pub fn capture_photo(&mut self, path: &str) -> Result<(), String> {
+        if self.video_active {
+            return Err("photo capture is unavailable while video is active".into());
+        }
         if !self.running || self.session.is_null() || self.device.is_null() {
             return Err("camera session is not running".into());
         }
@@ -776,6 +981,10 @@ impl CameraEngine {
         self.running
     }
 
+    pub fn is_video(&self) -> bool {
+        self.video_active
+    }
+
     pub fn camera_id(&self) -> &str {
         &self.camera_id
     }
@@ -804,6 +1013,10 @@ impl CameraEngine {
                 sys::ACameraOutputTarget_free(self.still_target);
                 self.still_target = ptr::null_mut();
             }
+            if !self.video_target.is_null() {
+                sys::ACameraOutputTarget_free(self.video_target);
+                self.video_target = ptr::null_mut();
+            }
             if !self.output_container.is_null() {
                 sys::ACaptureSessionOutputContainer_free(self.output_container);
                 self.output_container = ptr::null_mut();
@@ -816,6 +1029,10 @@ impl CameraEngine {
                 sys::ACaptureSessionOutput_free(self.still_output);
                 self.still_output = ptr::null_mut();
             }
+            if !self.video_output.is_null() {
+                sys::ACaptureSessionOutput_free(self.video_output);
+                self.video_output = ptr::null_mut();
+            }
             if !self.still_reader.is_null() {
                 sys::AImageReader_delete(self.still_reader);
                 self.still_reader = ptr::null_mut();
@@ -827,6 +1044,10 @@ impl CameraEngine {
             if !self.manager.is_null() {
                 sys::ACameraManager_delete(self.manager);
                 self.manager = ptr::null_mut();
+            }
+            if !self.video_window.is_null() {
+                sys::ANativeWindow_release(self.video_window);
+                self.video_window = ptr::null_mut();
             }
             if !self.preview_window.is_null() {
                 sys::ANativeWindow_release(self.preview_window);

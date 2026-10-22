@@ -107,6 +107,17 @@ fun CameraScreen() {
     var captureMode by remember { mutableStateOf(MODE_JPEG12) }
     var activeMode by remember { mutableStateOf(-1) }
     var currentSurface by remember { mutableStateOf<Surface?>(null) }
+    var videoMode by remember { mutableStateOf(false) }
+    var video4k16 by remember { mutableStateOf(false) }
+    var recording by remember { mutableStateOf(false) }
+    var videoBusy by remember { mutableStateOf(false) }
+    var recorder by remember { mutableStateOf<VideoRecorder?>(null) }
+    var audioGranted by remember {
+        mutableStateOf(
+            context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
+                PackageManager.PERMISSION_GRANTED
+        )
+    }
 
     val cameraIdState = rememberUpdatedState(cameraId)
     val modeState = rememberUpdatedState(captureMode)
@@ -116,6 +127,13 @@ fun CameraScreen() {
     ) { granted ->
         hasCamera = granted
         if (!granted) status = "Camera permission denied"
+    }
+
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        audioGranted = granted
+        status = if (granted) "Microphone ready" else "Microphone permission denied"
     }
 
     LaunchedEffect(Unit) {
@@ -137,6 +155,10 @@ fun CameraScreen() {
     }
 
     fun restart(requestedCamera: Int, requestedMode: Int) {
+        if (recording || videoBusy) {
+            status = "Stop recording first"
+            return
+        }
         cameraId = requestedCamera
         captureMode = requestedMode
         zoom = 1f
@@ -149,6 +171,75 @@ fun CameraScreen() {
         val ok = NativeBridge.nativeStartPreview(surface, requestedCamera, requestedMode)
         activeMode = NativeBridge.nativeGetActiveMode()
         describeStatus(requestedCamera, requestedMode, ok)
+    }
+
+    fun beginVideo() {
+        if (recording || videoBusy) return
+        if (!audioGranted) {
+            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
+        val surface = currentSurface
+        if (surface == null) {
+            status = "Waiting for preview surface…"
+            return
+        }
+        val dir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: context.filesDir
+        dir.mkdirs()
+        val file = File(dir, "VID_${System.currentTimeMillis()}.mp4")
+        val config = if (video4k16) {
+            VideoRecorder.Config(width = 3840, height = 2160, fps = 60)
+        } else {
+            VideoRecorder.Config()
+        }
+        videoBusy = true
+        status = "Starting video…"
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val rec = VideoRecorder(context)
+                    rec.start(surface, cameraId, file, config)
+                    rec
+                }
+            }
+            result.onSuccess {
+                recorder = it
+                recording = true
+                videoBusy = false
+                status = "Recording ${file.name}"
+            }.onFailure {
+                recording = false
+                videoBusy = false
+                status = "Video failed: ${it.message ?: it.javaClass.simpleName}"
+            }
+        }
+    }
+
+    fun endVideo() {
+        if (!recording || videoBusy) return
+        val rec = recorder
+        videoBusy = true
+        status = "Saving video…"
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { rec?.stop() ?: error("video recorder is not active") }
+            }
+            recorder = null
+            recording = false
+            videoBusy = false
+            val surface = currentSurface
+            if (surface != null) {
+                withContext(Dispatchers.IO) {
+                    NativeBridge.nativeStartPreview(surface, cameraId, captureMode)
+                }
+            }
+            result.onSuccess {
+                status = "Saved ${it.name}"
+                Toast.makeText(context, "Saved ${it.name}", Toast.LENGTH_SHORT).show()
+            }.onFailure {
+                status = "Video stop failed: ${it.message ?: it.javaClass.simpleName}"
+            }
+        }
     }
 
     DisposableEffect(surfaceView, hasCamera) {
@@ -184,6 +275,12 @@ fun CameraScreen() {
 
             override fun surfaceDestroyed(holder: SurfaceHolder) {
                 started = false
+                if (recording) {
+                    recorder?.abort()
+                    recorder = null
+                    recording = false
+                    videoBusy = false
+                }
                 currentSurface = null
                 NativeBridge.nativeStopPreview()
             }
@@ -194,6 +291,12 @@ fun CameraScreen() {
 
         onDispose {
             surfaceView.holder.removeCallback(callback)
+            if (recording) {
+                recorder?.abort()
+                recorder = null
+                recording = false
+                videoBusy = false
+            }
             NativeBridge.nativeStopPreview()
         }
     }
@@ -247,11 +350,32 @@ fun CameraScreen() {
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                SettingChip("VIDEO", videoMode) {
+                    if (!recording && !videoBusy) {
+                        videoMode = !videoMode
+                        status = if (videoMode) "Video 4K 4:3 · 30 fps" else "Photo mode"
+                    }
+                }
                 SettingChip("12", captureMode == MODE_JPEG12) { restart(cameraId, MODE_JPEG12) }
                 SettingChip("50", captureMode == MODE_JPEG50) { restart(cameraId, MODE_JPEG50) }
                 SettingChip("RAW", captureMode == MODE_RAW12) { restart(cameraId, MODE_RAW12) }
                 SettingChip("R50", captureMode == MODE_RAW50) { restart(cameraId, MODE_RAW50) }
                 SettingChip("HDR", captureMode == MODE_HDR3) { restart(cameraId, MODE_HDR3) }
+            }
+
+            if (videoMode) {
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SettingChip(
+                        if (video4k16) "4K 16:9 · 60" else "4K 4:3 · 30",
+                        true,
+                    ) {
+                        if (!recording && !videoBusy) {
+                            video4k16 = !video4k16
+                            status = if (video4k16) "Video 4K 16:9 · 60 fps" else "Video 4K 4:3 · 30 fps"
+                        }
+                    }
+                }
             }
 
             Spacer(Modifier.height(10.dp))
@@ -291,7 +415,11 @@ fun CameraScreen() {
                     .scale(shutterScale)
                     .clip(CircleShape)
                     .border(4.dp, Color.White, CircleShape)
-                    .clickable(enabled = !capturing) {
+                    .clickable(enabled = if (videoMode) !videoBusy else !capturing) {
+                        if (videoMode) {
+                            if (recording) endVideo() else beginVideo()
+                            return@clickable
+                        }
                         if (capturing) return@clickable
                         capturing = true
                         if (captureMode == MODE_HDR3) status = "Processing HDR…"
@@ -324,18 +452,33 @@ fun CameraScreen() {
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(if (capturing) 54.dp else 66.dp)
-                        .clip(CircleShape)
-                        .background(if (capturing) Color(0xFF888888) else Accent)
-                )
+                if (videoMode) {
+                    Box(
+                        modifier = Modifier
+                            .size(if (recording) 34.dp else 58.dp)
+                            .clip(if (recording) RoundedCornerShape(6.dp) else CircleShape)
+                            .background(if (videoBusy) Color(0xFF888888) else Color(0xFFE53935))
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(if (capturing) 54.dp else 66.dp)
+                            .clip(CircleShape)
+                            .background(if (capturing) Color(0xFF888888) else Accent)
+                    )
+                }
             }
 
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "${modeLabel(captureMode)} · ${cameraLabel(cameraId)} · tap to capture",
-                color = Color.White.copy(alpha = 0.55f),
+                text = if (videoMode) {
+                    val spec = if (video4k16) "4K 16:9 · 60 fps" else "4K 4:3 · 30 fps"
+                    if (recording) "REC · $spec · tap to stop"
+                    else "VIDEO · $spec · ${cameraLabel(cameraId)} · tap to record"
+                } else {
+                    "${modeLabel(captureMode)} · ${cameraLabel(cameraId)} · tap to capture"
+                },
+                color = if (recording) Color(0xFFFF5252) else Color.White.copy(alpha = 0.55f),
                 fontSize = 11.sp
             )
         }

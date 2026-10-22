@@ -175,8 +175,8 @@ A task is done when all are true:
 - **DNG calibration is user-supplied.** Do not bundle vendor ColorMatrix, LUT or
   EEPROM data in the public repo.
 - **HDR evidence** must include a textured scene, not a blurry close-up.
-- **25 MP is one probe, not a campaign.** Request 5888×4416 once; if the HAL
-  returns smaller, reject and close it. Do not loop through vendor flags.
+- **25 MP is closed by evidence.** Session accepts 5888×4416 but capture returns
+  1920×1440; do not re-open it without new HAL evidence. No upscale.
 - **4K120, front 4K and Dolby Vision are not portable** on this device/module
   evidence. Do not add UI that implies they work.
 - **10-bit/HDR:** verify the actual bit depth, colour profile and metadata with a

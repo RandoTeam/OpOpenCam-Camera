@@ -77,8 +77,8 @@ APK. The release workflow builds `app-release.apk` and its SHA-256. See [CI.md](
 
 ### T5 — video parity
 
-- 4K 4:3 30 / 4K 16:9 60: dimensions, fps, duration, A/V sync.
-- 1080p 120, 720p 60, front 1080p: playback speed and audio.
+- 4K 4:3 30: ✅ 4096×3072 HEVC, ~79 Mbps, stereo AAC; A/V start aligned, tail trim pending.
+- 4K 16:9 60, 1080p 120, 720p 60, front 1080p: dimensions, fps, duration, A/V sync.
 - EIS/OIS: FOV/crop, handheld stability.
 - Lock lens/WB, mic status, bitrate, stop sound.
 - 10-bit P010: bit depth, profile, HDR10/HLG metadata.
@@ -87,7 +87,8 @@ APK. The release workflow builds `app-release.apk` and its SHA-256. See [CI.md](
 
 ### T6 — still and Pro parity
 
-- 25 MP probe: real 5888×4416 or documented rejection.
+- 25 MP: session may accept 5888×4416, but capture must be rejected if JPEG is
+  1920×1440; closed by evidence, no file.
 - 10-bit HEIF / Ultra HDR: bit depth/gainmap verified by a reader.
 - Night/long exposure/burst/motion/panorama/document.
 - Pro: manual ISO/shutter/WB/focus, histogram/level/peaking, JPEG+DNG.

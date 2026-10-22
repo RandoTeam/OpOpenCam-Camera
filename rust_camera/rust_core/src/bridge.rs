@@ -106,6 +106,101 @@ pub extern "system" fn Java_com_opopencam_camera_NativeBridge_nativeStartPreview
     }
 }
 
+/// Starts a recording session with preview plus a MediaCodec input surface.
+///
+/// Kotlin owns the MediaCodec/MediaMuxer/AudioRecord pipeline; Rust only adds
+/// the encoder surface to Camera2. The caller must keep both surfaces alive
+/// until `nativeStopVideo` returns.
+#[no_mangle]
+pub extern "system" fn Java_com_opopencam_camera_NativeBridge_nativeStartVideo(
+    env: JNIEnv,
+    _this: JObject,
+    preview_surface: JObject,
+    video_surface: JObject,
+    camera_id: jint,
+    width: jint,
+    height: jint,
+    fps: jint,
+) -> jboolean {
+    init_logging();
+    if preview_surface.is_null() || video_surface.is_null() {
+        error!("nativeStartVideo: surface is null");
+        return JNI_FALSE;
+    }
+
+    let sensor = OnePlus13Sensor::from_id(camera_id);
+    let mut guard = engine_lock();
+    *guard = None;
+
+    let preview_window = surface_to_window(&env, &preview_surface);
+    if preview_window.is_null() {
+        error!("nativeStartVideo: preview ANativeWindow is null");
+        return JNI_FALSE;
+    }
+    let video_window = surface_to_window(&env, &video_surface);
+    if video_window.is_null() {
+        error!("nativeStartVideo: video ANativeWindow is null");
+        unsafe { ndk_sys::ANativeWindow_release(preview_window) };
+        return JNI_FALSE;
+    }
+
+    match CameraEngine::new_video(
+        preview_window,
+        video_window,
+        sensor.camera_id_str(),
+        width,
+        height,
+        fps,
+    ) {
+        Ok(engine) => {
+            info!(
+                "nativeStartVideo: camera {} ({}) {}x{}@{} ready",
+                engine.camera_id(),
+                sensor.sensor_name(),
+                width,
+                height,
+                fps
+            );
+            *guard = Some(engine);
+            JNI_TRUE
+        }
+        Err(e) => {
+            error!(
+                "nativeStartVideo: camera {} failed: {}",
+                sensor.camera_id_str(),
+                e
+            );
+            JNI_FALSE
+        }
+    }
+}
+
+/// Stops the active video session. The caller must then restore preview with
+/// `nativeStartPreview` if the UI remains open.
+#[no_mangle]
+pub extern "system" fn Java_com_opopencam_camera_NativeBridge_nativeStopVideo(
+    _env: JNIEnv,
+    _this: JObject,
+) {
+    let mut guard = engine_lock();
+    *guard = None;
+    info!("nativeStopVideo: stopped");
+}
+
+/// Returns whether the active session is a video session.
+#[no_mangle]
+pub extern "system" fn Java_com_opopencam_camera_NativeBridge_nativeIsVideoRunning(
+    _env: JNIEnv,
+    _this: JObject,
+) -> jboolean {
+    let guard = engine_lock();
+    if guard.as_ref().map(|e| e.is_video()).unwrap_or(false) {
+        JNI_TRUE
+    } else {
+        JNI_FALSE
+    }
+}
+
 /// Stops the active session and releases the preview window.
 #[no_mangle]
 pub extern "system" fn Java_com_opopencam_camera_NativeBridge_nativeStopPreview(

@@ -13,7 +13,7 @@ IDs are stable; use them in branches (`feat/video-101-...`). One task per PR.
 | HDR-101 | Textured static HDR comparison | — | 12 MP vs HDR vs stock/LMC; metrics |
 | HDR-102 | Moving-subject ghosting test | HDR-101 | Ghosting documented; motion-mask decision |
 | HDR-103 | Tone/weight tuning | HDR-101 | Natural look; no clipped highlights |
-| STILL-101 | One 25 MP (5888×4416) probe | — | Works or documented HAL rejection; no fake file |
+| STILL-101 | 25 MP (5888×4416) probe | — | **Closed:** session accepts size, capture returns 1920×1440; no file, no upscale |
 | JPEG-101 | Document 50 MP JPEG limitation | — | README/STATUS/CAPTURE_MODES updated |
 | CAP-101 | Capability baseline | — | `docs/STATUS.md` lists still/video/ISO limits |
 | CI-101 | Keep public CI/release green | — | Green on main and tags |
@@ -25,9 +25,9 @@ IDs are stable; use them in branches (`feat/video-101-...`). One task per PR.
 
 | ID | Task | Depends on | Acceptance |
 |---|---|---|---|
-| VIDEO-101 | 4K 4:3 4096×3072 @30 | — | HEVC MP4, stable, playable |
-| VIDEO-102 | 4K 16:9 3840×2160 @60 | VIDEO-101 | 60 fps, stable |
-| VIDEO-103 | Stereo AAC + mux | — | 48 kHz stereo 256 kbps, A/V sync |
+| VIDEO-101 | 4K 4:3 4096×3072 @30 | — | **Verified:** HEVC Main 4096×3072 30 fps, ~79 Mbps, playable |
+| VIDEO-102 | 4K 16:9 3840×2160 @60 | VIDEO-101 | **Verified:** HEVC Main ~60 fps, ~82 Mbps |
+| VIDEO-103 | Stereo AAC + mux | — | **Partial:** 48 kHz stereo 192 kbps verified; audio tail ~0.2–0.5 s needs trimming |
 | VIDEO-104 | EIS/OIS + crop/FOV measurement | VIDEO-101 | Stable handheld; documented FOV |
 | VIDEO-105 | Bitrate, lock lens, lock WB, mic status | VIDEO-103 | Controls work; no mid-clip switch |
 | VIDEO-106 | 1080p 120 | VIDEO-101 | 120 fps timeline, audio |
@@ -123,6 +123,7 @@ IDs are stable; use them in branches (`feat/video-101-...`). One task per PR.
 | ID | Reason |
 |---|---|
 | JPEG-50 | HAL returns 1920×1440 for 8192×6144 JPEG; use RAW 50 |
+| JPEG-25 | Session accepts 5888×4416, capture returns 1920×1440 JPEG; closed, no upscale |
 | VIDEO-4K120 | Not advertised; module reports OnePlus 13 freezes |
 | VIDEO-FRONT4K | Front max 3280×2464; vendor upscale only |
 | VIDEO-DOLBY | Dolby licence/vendor encoder; use HDR10/HLG |

@@ -58,19 +58,24 @@ Current limitation: translation-only alignment. Rotation, parallax and moving
 subjects can still ghost; feature/optical-flow alignment is the next quality step.
 HAL `EnableSHDR`/`EnableQHDR` vendor tags will be tested as an additional path.
 
-## 25 MP (experimental)
+## 25 MP — closed by evidence
 
 The module exposes a vendor “25 MP Turbo RAW” path (advertised output 5888×4416).
-Camera2 does not advertise a 25 MP stream; the module uses vendor flags inside the
-stock app. OpOpenCam will make **one** time-boxed attempt to request 5888×4416 JPEG
-through the same vendor session mode used for RAW 50. If the HAL returns a smaller
-JPEG, the SOF guard rejects it and the mode is closed. Do not upscale.
+Camera2 does not advertise a 25 MP stream. A controlled probe configured a
+5888×4416 JPEG reader through the same vendor session mode used for RAW 50:
+
+- session creation: **accepted**;
+- preview: active;
+- capture: HAL returned a **1920×1440 JPEG**;
+- SOF guard rejected it; no file was saved.
+
+25 MP is therefore closed. Use 12 MP JPEG or RAW 50; do not upscale.
 
 ## Planned still modes
 
 | Mode | Plan | Priority |
 |---|---|---|
-| 25 MP | one vendor-mode probe; close if not real | P0 |
+| 25 MP | closed by evidence; no upscale | — |
 | 10-bit HEIF | `HeifWriter`/HEVC 10-bit, if supported | P2 |
 | Ultra HDR | SDR JPEG + Android gainmap | P2 |
 | Night | multi-frame bracket + merge | P2 |
@@ -131,7 +136,7 @@ show `HAL fallback: …`.
 - [x] Lens 0.6/1×/3×: cameras 3/0/4 verified; restart ~50 ms.
 - [x] Mode/lens restart keeps preview alive.
 - [ ] Thermal test: 10 HDR and 10 RAW 50 captures.
-- [ ] 25 MP: one 5888×4416 probe; close if HAL returns smaller.
+- [x] 25 MP: closed — session accepted 5888×4416, capture returned 1920×1440.
 - [ ] 10-bit HEIF/Ultra HDR: file opens with correct bit depth/gainmap.
 - [ ] Pro mode: manual ISO/shutter/WB/focus, histogram/level/peaking.
 - [ ] Portrait/macro/night/burst/panorama/document modes.

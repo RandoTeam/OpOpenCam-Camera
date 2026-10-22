@@ -50,7 +50,7 @@ Legend:
 | 12 MP JPEG | yes | existing | done | ✅ |
 | 50 MP RAW/DNG | 50 MP | existing | done | ✅ |
 | 50 MP JPEG | stock system path | reject mismatched JPEG; use RAW 50 | closed | ❌ |
-| 25 MP Turbo RAW / JPEG | vendor flags | request 5888×4416 once; if HAL returns smaller, close | P0 | 🟣 |
+| 25 MP Turbo RAW / JPEG | vendor flags | **closed by evidence**: session accepts 5888×4416, capture returns 1920×1440 JPEG; no upscale | — | ❌ |
 | HDR stills | stock HDR | 3-frame NCC + Mertens; quality tuning | P0 | 🟡 |
 | Night mode | stock night | multi-frame night + tone mapping | P2 | 🔵 |
 | Long exposure | Pro mode | manual shutter, up to sensor limit | P2 | 🔵 |
@@ -97,8 +97,8 @@ Legend:
 
 | Feature | Stock / module | Our plan | Priority | Status |
 |---|---|---|---|---|
-| 4K 4:3 30 fps | stock | Camera2 PRIVATE/P010 → HEVC → MP4 | P1 | 🔵 |
-| 4K 16:9 60 fps | stock | same pipeline, 3840×2160@60 | P1 | 🔵 |
+| 4K 4:3 30 fps | stock | Camera2 PRIVATE/P010 → HEVC → MP4 | P1 | ✅ verified |
+| 4K 16:9 60 fps | stock | same pipeline, 3840×2160@60 | P1 | ✅ verified |
 | 1080p 120 fps | module | high-speed session + 120 fps timeline | P1 | 🔵 |
 | 720p 60 fps | module | standard video | P1 | 🔵 |
 | 720p 480 slow motion | module | high-speed 720p480; experimental, audio/slow-mo mux | P2/P3 | 🟣 |
@@ -182,7 +182,7 @@ Legend:
 | Item | Reason | Clean alternative |
 |---|---|---|
 | 50 MP JPEG | HAL returns 1920×1440; system-only path | RAW 50 DNG |
-| 25 MP Turbo RAW | vendor pipeline; untested via Camera2 | one 5888×4416 experiment, then close |
+| 25 MP Turbo RAW | session accepts 5888×4416, but HAL returns 1920×1440 JPEG | use 12 MP or RAW 50 |
 | 4K 120 / front 4K | not advertised; module reports 4K120 freezes | 4K60, 1080p120, front 1080p120 |
 | Dolby Vision | Dolby licence + vendor encoder | HEVC Main10 + HDR10/HLG |
 | Hasselblad colour/watermark | trademark and vendor processing | own colour science and watermark |

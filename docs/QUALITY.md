@@ -57,7 +57,8 @@ RAW / YUV frames (3–9, exposure-bracketed or ZSL)
   branded LUTs. LUTs are user-supplied.
 - **Gallery/editor:** non-destructive export, correct orientation/colour, no quality
   loss beyond the chosen JPEG settings.
-- **25 MP:** only if the file is really 5888×4416; otherwise closed, not upscaled.
+- **25 MP:** closed by evidence — session accepted 5888×4416, JPEG was 1920×1440.
+  No upscale and no 25 MP label.
 
 ## Anti-goals
 

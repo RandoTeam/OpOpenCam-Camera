@@ -7,6 +7,26 @@ All notable changes to the OpOpenCam Rust camera are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **4K 4:3 video**: 4096×3072 HEVC Main 30 fps, ~79 Mbps, AAC-LC stereo 48 kHz
+  192 kbps, MP4 with orientation metadata.
+- **4K 16:9 video**: 3840×2160 HEVC ~60 fps, ~82 Mbps, same stereo audio.
+- VIDEO chip and record/stop control; preview is restored after stop.
+- Rust video session: preview + MediaCodec input surface in one Camera2 session.
+- Verified on device: 16.9 s / 162 MB 4K4:3 file, rotation −90°, repeated
+  start/stop; 4K16:9 60 test at 2.8 s / 27 MB.
+
+### Known limitations
+
+- Audio tail can be ~0.15?0.2 s longer than video; start PTS is aligned.
+- 4K 16:9 60, 1080p 120, 720p 60, front video, 10-bit/HDR, EIS and MediaStore
+  publication are next.
+- 25 MP JPEG is closed by evidence: session accepts 5888×4416, capture returns
+  1920×1440; no file is written.
+
 ## [0.3.0-alpha.1] — 2026-10-22
 
 ### Added

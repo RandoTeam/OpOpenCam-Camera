@@ -26,6 +26,23 @@ object NativeBridge {
     external fun nativeSetZoom(ratio: Float): Boolean
     external fun nativeIsRunning(): Boolean
 
+    /**
+     * Starts a recording session with the existing preview surface and a
+     * MediaCodec input surface. Blocks while the Camera2 session is rebuilt;
+     * call from a background thread.
+     */
+    external fun nativeStartVideo(
+        previewSurface: Surface,
+        videoSurface: Surface,
+        cameraId: Int,
+        width: Int,
+        height: Int,
+        fps: Int,
+    ): Boolean
+
+    external fun nativeStopVideo()
+    external fun nativeIsVideoRunning(): Boolean
+
     /** Actual mode after HAL fallback; -1 when no session is active. */
     external fun nativeGetActiveMode(): Int
 
