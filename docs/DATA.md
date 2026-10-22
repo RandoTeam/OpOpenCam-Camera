@@ -32,7 +32,7 @@ The repository only keeps:
 
 ## Re-capturing
 
-Follow [../DEVICE_TEST_PLAN.md](../DEVICE_TEST_PLAN.md). After the session, move the
+Follow [DEVICE_TEST_PLAN.md](DEVICE_TEST_PLAN.md). After the session, move the
 new directory under `test_reports/` and keep it out of git.
 
 ## Sanitising before sharing

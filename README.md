@@ -28,8 +28,24 @@ Live Photo implementation with real stereo sound.
 | Preview restart | ✅ ~50 ms |
 | Live Photo / 4K video / stereo audio | 🚧 next milestone |
 
-Full details: [rust_camera/README.md](rust_camera/README.md) and
-[rust_camera/docs/LIVE_2026-10-22.md](rust_camera/docs/LIVE_2026-10-22.md).
+Full details: [rust_camera/README.md](rust_camera/README.md),
+[docs/STATUS.md](docs/STATUS.md) and
+[docs/reports/LIVE_2026-10-22.md](docs/reports/LIVE_2026-10-22.md).
+
+## Documentation
+
+Start at [docs/README.md](docs/README.md). The most useful entry points:
+
+| Document | What it answers |
+|---|---|
+| [PROJECT.md](docs/PROJECT.md) | Vision, goals, non-goals |
+| [STATUS.md](docs/STATUS.md) | What is verified today |
+| [PIPELINE.md](docs/PIPELINE.md) | How a frame becomes a file |
+| [ROADMAP.md](docs/ROADMAP.md) | Now / next / later milestones |
+| [BACKLOG.md](docs/BACKLOG.md) | Prioritized tasks |
+| [AGENTS.md](docs/AGENTS.md) | Rules for AI agents |
+| [TESTING.md](docs/TESTING.md) | Test pyramid and evidence |
+| [DECISIONS/](docs/DECISIONS/) | Why key choices were made |
 
 ## Quick start
 
@@ -50,12 +66,15 @@ adb uninstall com.oneplus.camera
 ## Repository layout
 
 ```
-rust_camera/          Rust engine, Compose app, docs, build scripts
+rust_camera/          Rust engine, Compose app, build scripts
   rust_core/          Camera2 NDK, capture modes, HDR, DNG, Motion Photo
   android_app/        Jetpack Compose shell
-  docs/               architecture, roadmap, quality, Motion Photo, CI
   scripts/            build / check / install
-PLAN.md               next milestones and publication checklist
+docs/                 project handbook, pipeline, roadmap, agent rules, ADRs
+  DECISIONS/          architecture decision records
+  reports/            live verification reports
+CONTRIBUTING.md
+PLAN.md               short pointer to docs/ROADMAP.md
 THIRD_PARTY_NOTICES.md
 TRADEMARKS.md
 SECURITY.md
@@ -74,7 +93,8 @@ calibration is intentionally not bundled. See [TRADEMARKS.md](TRADEMARKS.md).
 
 ## Roadmap
 
-The next milestones are in [PLAN.md](PLAN.md):
+The canonical plan is [docs/ROADMAP.md](docs/ROADMAP.md), with task detail in
+[docs/BACKLOG.md](docs/BACKLOG.md):
 
 1. DNG colour calibration with user-supplied profiles.
 2. HDR quality on textured/moving scenes.
@@ -84,9 +104,9 @@ The next milestones are in [PLAN.md](PLAN.md):
 
 ## Contributing
 
-See [rust_camera/CONTRIBUTING.md](rust_camera/CONTRIBUTING.md). Use Conventional
-Commits, keep PRs focused, and never commit personal photos, device serials or
-keystores.
+See [CONTRIBUTING.md](CONTRIBUTING.md). AI agents must also read
+[docs/AGENTS.md](docs/AGENTS.md). Use Conventional Commits, keep PRs focused, and
+never commit personal photos, device serials or keystores.
 
 ## License
 

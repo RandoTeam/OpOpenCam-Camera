@@ -6,10 +6,10 @@
 [![Local checks](https://img.shields.io/badge/local%20checks-passing-brightgreen)](scripts/check.ps1)
 [![Version](https://img.shields.io/badge/version-0.3.0--alpha.1-orange)](CHANGELOG.md)
 [![Platform](https://img.shields.io/badge/platform-Android%2016%20%7C%20arm64-blue)](https://www.android.com/)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-green)](../LICENSE)
 
 > **CI:** GitHub Actions runs formatting, host tests, Clippy and the Android build
-> on every push/PR. See [docs/CI.md](docs/CI.md).
+> on every push/PR. See [docs/CI.md](../docs/CI.md).
 
 OpOpenCam is a hybrid camera stack for the OnePlus 13 (`PJZ110`, Snapdragon 8 Elite,
 ColorOS 16 / Android 16). The camera session and image processing live in **Rust**;
@@ -69,7 +69,7 @@ for known limitations.
 
 Mode/lens changes restart the Camera2 session on the same surface. The engine
 reports the actual mode after a HAL fallback and validates the real JPEG SOF size.
-Details: [docs/CAPTURE_MODES.md](docs/CAPTURE_MODES.md).
+Details: [docs/CAPTURE_MODES.md](../docs/CAPTURE_MODES.md).
 
 ### Device verification — 2026-10-22
 
@@ -99,7 +99,7 @@ flowchart LR
 - **Compose** owns layout, gestures, animations and permissions.
 - **JNI** is intentionally small: start/stop, capture, zoom, status.
 
-More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+More detail: [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md).
 
 ## Verified hardware baseline
 
@@ -117,7 +117,7 @@ Rear cameras advertise `RAW`, `YUV_REPROCESSING`, `PRIVATE_REPROCESSING`,
 `BURST_CAPTURE`, `DYNAMIC_RANGE_TEN_BIT`, `LOGICAL_MULTI_CAMERA`.
 4096×3072 output is available at **30 fps** in YUV/PRIVATE/P010; 3840×2160 at
 **60 fps**. Full baseline and Motion Photo measurements live in
-[DEVICE_TEST_PLAN.md](DEVICE_TEST_PLAN.md).
+[DEVICE_TEST_PLAN.md](../docs/DEVICE_TEST_PLAN.md).
 
 > **Package identity:** the APK installs as `com.oneplus.camera` (the Chi HAL
 > whitelist name). If the old patched stock clone is installed, remove it first:
@@ -151,7 +151,7 @@ debug APK. Install with:
 .\rust_camera\scripts\install.ps1
 ```
 
-Manual commands are documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Manual commands are documented in [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md).
 
 ## Project layout
 
@@ -168,16 +168,15 @@ rust_camera/
 │       ├── dng_writer.rs
 │       └── circular_ring_buffer.rs
 ├── android_app/               # Jetpack Compose shell
-├── docs/                      # architecture, roadmap, quality, Motion Photo
 ├── scripts/                   # build / check / install
-├── DEVICE_TEST_PLAN.md        # evening verification plan
 ├── CHANGELOG.md
 └── VERSION
 ```
 
-> The public build does **not** include vendor-specific LUT/tone modules, device
-> calibration assets or extracted vendor binaries. Those remain in the private
-> research archive.
+Project-level docs (vision, pipeline, roadmap, testing, ADRs) live in
+[`../docs/`](../docs/README.md). The public build does **not** include
+vendor-specific LUT/tone modules, device calibration assets or extracted vendor
+binaries. Those remain in the private research archive.
 
 ## Quality principles
 
@@ -187,7 +186,7 @@ rust_camera/
 4. **Measured, not guessed.** Every HDR/video claim is compared against LMC and stock.
 5. **10-bit where possible.** P010 and HEIF/AV1 are first-class targets.
 
-Full quality contract: [docs/QUALITY.md](docs/QUALITY.md).
+Full quality contract: [docs/QUALITY.md](../docs/QUALITY.md).
 
 ## Roadmap
 
@@ -198,7 +197,7 @@ Full quality contract: [docs/QUALITY.md](docs/QUALITY.md).
 - **M5:** Live Photo 6 s (3 s before + 3 s after), 4:3, stereo AAC.
 - **M6:** 4K 4:3 30 fps / 4K 16:9 60 fps video, UI polish, beta release.
 
-Detailed milestones and acceptance criteria: [docs/ROADMAP.md](docs/ROADMAP.md).
+Detailed milestones and acceptance criteria: [docs/ROADMAP.md](../docs/ROADMAP.md).
 
 ## Data and privacy
 
@@ -208,10 +207,10 @@ contains derived, non-identifying analysis and the test plan.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Use Conventional Commits, keep PRs focused,
+See [CONTRIBUTING.md](../CONTRIBUTING.md). Use Conventional Commits, keep PRs focused,
 and never commit personal photos or device dumps.
 
 ## License
 
 MIT for the original code. Third-party names, extracted color profiles and
-trademarks remain the property of their owners; see [LICENSE](LICENSE).
+trademarks remain the property of their owners; see [LICENSE](../LICENSE).

@@ -66,7 +66,7 @@ preserved only in `_archive/rust_track` and is not part of this crate.
 ## Build portability
 
 `cargo` needs an Android linker. The repository does **not** commit machine-specific
-`.cargo/config.toml`. Use `scripts/build.ps1` / `build.sh`, which set:
+`.cargo/config.toml`. Use `rust_camera/scripts/build.ps1` / `build.sh`, which set:
 
 ```
 CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=<NDK>/.../aarch64-linux-android35-clang
