@@ -38,6 +38,13 @@ Run `python rust_camera/scripts/check_version.py` before tagging.
 6. The `Rust Camera Release` workflow builds the APK and publishes a **pre-release**
    with auto-generated notes and a SHA-256 file.
 
+## Merge commits and email privacy
+
+GitHub’s merge button can author a squash/rebase commit with the account’s primary
+email, even when the PR’s commits use a generic identity. Before merging, verify
+the generated commit author; if it is personal, merge locally with the project
+identity and push `main` instead. Never publish a personal email in a merge commit.
+
 ## Signing
 
 Alpha/beta APKs are **debug-signed** and clearly marked as such. A production

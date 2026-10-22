@@ -73,6 +73,20 @@ If a document disagrees with reality, update the document in the same PR.
 
 ## 3. Workflow
 
+### 3.0 Git identity and merge safety
+
+- Before committing, set the local identity to the project identity:
+  `RandoTeam <RandoTeam@users.noreply.github.com>`.
+- **Do not use the GitHub “Squash and merge” or “Rebase and merge” button unless
+  the account’s email privacy is enabled and the resulting commit is verified.**
+  GitHub can author the merge commit with the account’s primary personal email
+  even when every branch commit is generic.
+- Preferred: merge locally with the generic identity, push `main`, then close the
+  PR with a note that it was merged manually. Verify `git log --format='%ae %ce'`
+  before pushing.
+- If a personal email ever reaches a public ref, stop, rewrite the ref, and treat
+  it as a PII incident.
+
 ### 3.1 Plan
 
 - Read `STATUS`, `ROADMAP`, `PIPELINE`, and the relevant ADR.
