@@ -5,10 +5,20 @@ on:
     branches: [main]
     paths:
       - "rust_camera/**"
+      - "docs/**"
+      - "AGENTS.md"
+      - "README.md"
+      - "CONTRIBUTING.md"
+      - "PLAN.md"
       - ".github/workflows/rust-camera-ci.yml"
   pull_request:
     paths:
       - "rust_camera/**"
+      - "docs/**"
+      - "AGENTS.md"
+      - "README.md"
+      - "CONTRIBUTING.md"
+      - "PLAN.md"
       - ".github/workflows/rust-camera-ci.yml"
 
 permissions:

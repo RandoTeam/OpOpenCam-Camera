@@ -32,8 +32,9 @@ matches your role.
 
 **New contributor:** PROJECT → STATUS → PIPELINE → ROADMAP → CONTRIBUTING → TESTING.
 
-**AI agent:** AGENTS → STATUS → ROADMAP → PIPELINE → TESTING. Follow the workflow
-and Definition of Done in AGENTS.md.
+**AI agent:** start at the repository root `AGENTS.md` (short pointer), then read
+AGENTS → STATUS → ROADMAP → PIPELINE → TESTING. Follow the workflow and Definition
+of Done in AGENTS.md.
 
 **Release manager:** RELEASING → CI → STATUS → CHANGELOG.
 
