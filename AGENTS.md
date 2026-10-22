@@ -7,9 +7,11 @@ before any task, then read [docs/STATUS.md](docs/STATUS.md),
 ## Non-negotiables
 
 1. No secrets, keystores, tokens, passwords, device serials or personal photos.
-2. No stock APK, vendor libraries, LUTs, EEPROM/calibration or LMC-derived code in
-   the public repo.
+2. No stock APK, vendor libraries, LUTs, EEPROM/calibration, LMC-derived code or
+   GPL `OPCameraPro` code in the public repo.
 3. No fake success: camera features need device evidence (logs, dimensions, files).
+   Vendor-only features (50 MP JPEG, 4K120, front 4K, Dolby, branded AI) stay
+   documented as not portable.
 4. Branch → PR → green CI → squash merge. Never commit directly to `main`.
 5. Update docs, `STATUS.md`, `ROADMAP.md`/`BACKLOG.md` and `CHANGELOG.md` in the
    same PR as the code.

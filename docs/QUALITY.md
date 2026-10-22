@@ -10,10 +10,12 @@ The goal is a professional, natural image — not a phone-style “AI” render.
 3. **Lift shadows without noise.** Shadow detail is recovered with noise-aware weights,
    not a global brightness boost.
 4. **No hallucinated detail.** No neural upscaling, sky replacement or synthetic bokeh
-   in the base pipeline.
-5. **Natural color.** Neutral white balance, accurate skin tones, restrained saturation;
-   Hasselblad/Leica LUTs are optional looks, not the default.
-6. **10-bit where possible.** P010 capture and HEIF/AV1 output are first-class targets.
+   in the base pipeline. Portrait bokeh is an explicit, labelled mode with depth or
+   segmentation — never silently applied.
+5. **Natural color.** Neutral white balance, accurate skin tones, restrained saturation.
+   Branded/vendor LUTs are not bundled; user-supplied LUTs are optional looks.
+6. **10-bit where possible.** P010 capture and HEIF/HDR output are first-class targets,
+   but only when the actual bit depth/metadata is verified.
 7. **Measure, don’t guess.** Every quality claim is compared on the same scene against
    LMC 8.3 and the stock camera.
 
@@ -40,9 +42,29 @@ RAW / YUV frames (3–9, exposure-bracketed or ZSL)
 - capture + processing latency;
 - file size and thermal cost.
 
+## Parity quality gates
+
+- **Video:** stable frame rate, correct duration, A/V sync, no dropped audio; 4K 4:3
+  must be real 4096×3072, not an upscale.
+- **Live Photo:** 6.0 s ±50 ms, one HEVC video + one stereo AAC track, Motion Photo
+  XMP opens; a silent/low-res clip is a failure.
+- **10-bit/HDR:** verified bit depth and HDR10/HLG/gainmap metadata; “HDR” in the
+  UI without a real HDR file is a failure.
+- **Pro:** manual values actually applied (read back from capture result); no fake
+  ISO/shutter labels.
+- **Portrait/macro:** depth/stack present; edges natural; no halo cutouts.
+- **Filters/watermark:** original assets only; no Hasselblad/GR/LUMO/XPAN marks or
+  branded LUTs. LUTs are user-supplied.
+- **Gallery/editor:** non-destructive export, correct orientation/colour, no quality
+  loss beyond the chosen JPEG settings.
+- **25 MP:** only if the file is really 5888×4416; otherwise closed, not upscaled.
+
 ## Anti-goals
 
 - “Watercolor” denoise that removes pores and fabric texture.
 - Over-sharpening halos.
 - HDR that looks flat or has a glowing edge.
 - Motion Photo with no audio or a low-resolution video track.
+- Fake 25/50 MP files produced by resizing.
+- Branded lookalikes without a licence.
+- Shipping a feature just to match a checklist when it degrades the photo.

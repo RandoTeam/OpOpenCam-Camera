@@ -1,16 +1,23 @@
 # Video
 
-## Target modes
+## Modes
 
-| Mode | Size | FPS | Codec | Notes |
+| Mode | Size | FPS | Codec | Status |
 |---|---|---|---|---|
-| 4K 4:3 | 4096×3072 | 30 | HEVC | native 4:3 binned stream |
-| 4K 16:9 | 3840×2160 | 60 | HEVC | standard UHD |
-| 10-bit | P010 | 30/60 | HEVC Main10 | where the encoder accepts |
-| Audio | 48 kHz | — | AAC-LC stereo 256 kbps | external mic safe |
+| 4K 4:3 | 4096×3072 | 30 | HEVC | planned, HAL supports |
+| 4K 16:9 | 3840×2160 | 60 | HEVC | planned, HAL supports |
+| 1080p | 1920×1080 | 60/120 | HEVC | planned, 120 high-speed |
+| 720p | 1280×720 | 60 | HEVC | planned |
+| 720p slow | 1280×720 | 480 | HEVC | experimental, high-speed |
+| 10-bit | P010 | 30/60 | HEVC Main10 | planned, HAL supports P010 |
+| Front | 3280×2464 max | 30/60 | HEVC | front 1080p120; no native 4K |
+| Audio | 48 kHz | — | AAC-LC stereo 256 kbps | planned |
 
-The HAL advertises 4096×3072 @30 fps and 3840×2160 @60 fps for PRIVATE/P010 on the
-rear cameras. 4:3 at 60 fps is not available.
+The HAL advertises 4096×3072 @30, 3840×2160 @60, 1080p @120/240/480 and P010 on
+the rear cameras. **4K 120 and native front 4K are not advertised**; the module’s
+4K120 is reported to freeze on OnePlus 13 and front 4K is vendor upscale. Neither
+is planned. **Dolby Vision** requires a Dolby licence/vendor encoder; we target
+HDR10/HLG with HEVC Main10 instead.
 
 ## Architecture
 
@@ -23,10 +30,23 @@ flowchart LR
     MUX --> MP4["MP4 file"]
 ```
 
-- Kotlin creates the encoder surface and the audio encoders.
+- Kotlin creates the encoder surface and audio encoders.
 - Rust adds the video surface to the Camera2 session and starts the repeating
-  request with both preview and video targets.
-- MediaMuxer writes the MP4; the UI owns start/stop and file naming.
+  request with preview + video targets.
+- MediaMuxer writes the MP4; the UI owns start/stop, pause and naming.
+- Audio uses `AudioRecord` (stereo, 48 kHz); optional sound-focus research uses
+  stereo/beamforming, not a vendor microphone API.
+
+## Controls
+
+- Bitrate presets: 40/60/80/120 Mbps (HEVC).
+- Lock lens: disable logical-camera hand-off during recording.
+- Lock white balance: freeze AWB after a short settle.
+- Mic status: detect missing/occupied microphone and warn before recording.
+- Stop sound: play immediately on stop; do not wait for mux finalisation.
+- Auto frame rate: 24/30/60 based on light/scene (research).
+- Filters: our pipeline is resolution-independent; no 1080p30-only restriction.
+- EIS/OIS: use Camera2 stabilization modes; measure crop and FOV.
 
 ## Live Photo relationship
 
@@ -38,7 +58,7 @@ muxes 3 s before + 3 s after and appends the JPEG/XMP. See
 ## Stabilization
 
 - Start with `CONTROL_VIDEO_STABILIZATION_MODE` (EIS) where supported.
-- Record OIS/EIS behavior at 4K 4:3 and 4K 16:9.
+- Record OIS/EIS behaviour at 4K 4:3 and 4K 16:9.
 - Do not crop silently; document the field of view.
 
 ## Thermal and storage
@@ -46,14 +66,17 @@ muxes 3 s before + 3 s after and appends the JPEG/XMP. See
 - 4K 4:3 30 fps HEVC at 80–120 Mbps ≈ 36–54 GB/hour.
 - Test 1/3/10 minutes; record battery temperature and dropped frames.
 - Stop gracefully before thermal shutdown; keep the file playable.
+- Long clips should be chunked into playable segments if the encoder/muxer fails.
 
 ## Acceptance
 
 - 4K 4:3 30 fps: stable 30 fps, audio in sync, playable MP4.
 - 4K 16:9 60 fps: stable 60 fps, audio in sync.
-- 10-bit: correct profile/metadata if the encoder accepts; otherwise documented.
+- 1080p 120 / 720p 60: stable, audio in sync; slow-motion playback correct.
+- 10-bit: correct profile/bit depth/metadata, or documented failure.
 - Long recording: no corruption, no thermal shutdown, file size within budget.
+- Filters/lock lens/lock WB/mic status work without breaking the recording.
 
 ## Backlog
 
-See `VIDEO-101`…`VIDEO-202` in [BACKLOG.md](BACKLOG.md).
+See `VIDEO-101`…`VIDEO-206` in [BACKLOG.md](BACKLOG.md).

@@ -19,18 +19,25 @@ no per-frame JNI copies.
 ```
 ACameraDevice (camera 0, logical SAT)
   ├── ACaptureSessionOutput (preview ANativeWindow from SurfaceView)
-  └── ACaptureSessionOutput (AImageReader, JPEG 4096×3072, 3 buffers)
-        └── onImageAvailable → copy JPEG → write path → notify capture condvar
+  └── ACaptureSessionOutput (one still AImageReader)
+        ├── JPEG 4096×3072 / 8192×6144
+        ├── RAW_SENSOR 4096×3072 / 8192×6144 → DNG
+        └── YUV_420_888 4096×3072 ×3 → HDR
+              └── onImageAvailable → copy → process/write → notify condvar
 ```
+
+Planned video adds one encoder input surface to the same session; Live Photo uses
+the same surface plus the encoded-sample ring.
 
 - The preview request uses `TEMPLATE_PREVIEW` with AF continuous-picture, AE on,
   AWB auto.
 - The still request uses `TEMPLATE_STILL_CAPTURE`, JPEG quality 95, and
   `JPEG_ORIENTATION = 90` for portrait rear shots.
 - The session is created once; preview repeats continuously. A still capture is a
-  one-shot `ACameraCaptureSession_capture` to the JPEG reader.
-- Session readiness is signalled by `onReady`; the engine waits up to 2 s before
-  submitting the repeating request.
+  one-shot `ACameraCaptureSession_capture` to the selected reader.
+- This HAL does not deliver the `onReady` callback reliably. The engine retries
+  `setRepeatingRequest` for up to ~1 s instead of waiting 2 s; preview restart is
+  ~50 ms.
 
 ## JNI API
 
@@ -43,6 +50,10 @@ Class: `com.opopencam.camera.NativeBridge` (Kotlin `object`).
 | `nativeCapturePhoto(path)` | yes (up to 6 s) | JPEG capture; call from `Dispatchers.IO` |
 | `nativeSetZoom(ratio)` | no | `CONTROL_ZOOM_RATIO` on the repeating request |
 | `nativeIsRunning()` | no | session state |
+
+Planned additions (one feature per PR): `nativeSetMode`, `nativeCaptureHdr`,
+`nativeStartVideo`/`nativeStopVideo`, `nativeStartLivePhoto`/`nativeStopLivePhoto`,
+`nativeSetManualExposure`, `nativeSetFocus`, `nativeGetCapabilities`.
 
 All entry points serialise through a process-global `Mutex<Option<CameraEngine>>`.
 Only one camera client may own the preview surface at a time.
@@ -59,6 +70,12 @@ Only one camera client may own the preview surface at a time.
 | `circular_ring_buffer.rs` | reusable | frame ring for ZSL / Live Photo |
 | `capture_modes.rs` | active | 12/50 MP JPEG, RAW, HDR modes |
 | `hdr.rs` | active | YUV conversion, NCC alignment, Mertens fusion, JPEG encoding |
+| `video_encoder` (Kotlin) | planned | MediaCodec HEVC + MediaMuxer |
+| `audio_capture` (Kotlin) | planned | AudioRecord/AAC stereo |
+| `pro_controls` (Kotlin/Rust) | planned | Manual ISO/shutter/WB/focus + overlays |
+| `filters_lut` (Rust) | planned | 3D LUT + original looks |
+| `portrait` / `macro` (Rust) | planned | Depth/segmentation, focus stack |
+| `gallery_editor` (Kotlin) | planned | MediaStore + non-destructive editor |
 
 The old NativeActivity prototype (`pure_rust_app.rs`, `pipeline.rs`, etc.) is
 preserved only in `_archive/rust_track` and is not part of this crate.

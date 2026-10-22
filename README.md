@@ -27,6 +27,7 @@ Live Photo implementation with real stereo sound.
 | Lens switching 0.6× / 1× / 3× | ✅ cameras 3 / 0 / 4 |
 | Preview restart | ✅ ~50 ms |
 | Live Photo / 4K video / stereo audio | 🚧 next milestone |
+| Full stock/OPCameraPro parity | 🚧 mapped in [FEATURE_PARITY.md](docs/FEATURE_PARITY.md) |
 
 Full details: [rust_camera/README.md](rust_camera/README.md),
 [docs/STATUS.md](docs/STATUS.md) and
@@ -40,6 +41,7 @@ Start at [docs/README.md](docs/README.md). The most useful entry points:
 |---|---|
 | [PROJECT.md](docs/PROJECT.md) | Vision, goals, non-goals |
 | [STATUS.md](docs/STATUS.md) | What is verified today |
+| [FEATURE_PARITY.md](docs/FEATURE_PARITY.md) | Full stock + OPCameraPro feature map |
 | [PIPELINE.md](docs/PIPELINE.md) | How a frame becomes a file |
 | [ROADMAP.md](docs/ROADMAP.md) | Now / next / later milestones |
 | [BACKLOG.md](docs/BACKLOG.md) | Prioritized tasks |
@@ -85,8 +87,8 @@ PRIVACY.md
 
 This repository contains **only original source code and documentation**. It does
 not include stock APKs, extracted vendor libraries, Hasselblad LUTs, EEPROM or
-calibration assets, or any LMC-derived modules. Those remain in a private research
-archive and are not redistributed.
+calibration assets, any LMC-derived modules, or GPL `OPCameraPro` code. Those remain
+in a private research archive and are not redistributed.
 
 The public build uses a generic sRGB D65 matrix for DNG output; per-sensor
 calibration is intentionally not bundled. See [TRADEMARKS.md](TRADEMARKS.md).
@@ -98,9 +100,11 @@ The canonical plan is [docs/ROADMAP.md](docs/ROADMAP.md), with task detail in
 
 1. DNG colour calibration with user-supplied profiles.
 2. HDR quality on textured/moving scenes.
-3. Live Photo: 6 s (3 s before + 3 s after), 4:3, stereo AAC.
-4. 4K 4:3 30 fps / 4K 16:9 60 fps video.
-5. UI/UX and beta releases.
+3. 25 MP probe; 50 MP JPEG remains closed, RAW 50 is the max path.
+4. Video core: 4K 4:3 30 / 4K 16:9 60, 1080p 120, stereo audio.
+5. Live Photo: 6 s (3 s before + 3 s after), 4:3, stereo AAC.
+6. Pro mode, portrait/macro/zoom, LUTs/watermarks, gallery/editor.
+7. 10-bit P010/HDR10, Ultra HDR stills; no Dolby Vision.
 
 ## Contributing
 

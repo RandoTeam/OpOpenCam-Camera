@@ -1,7 +1,7 @@
 # Backlog
 
-Task-level view of [ROADMAP.md](ROADMAP.md). IDs are stable; use them in branches
-and PRs (`feat/hdr-101-...`).
+Task-level view of [ROADMAP.md](ROADMAP.md) and [FEATURE_PARITY.md](FEATURE_PARITY.md).
+IDs are stable; use them in branches (`feat/video-101-...`). One task per PR.
 
 ## P0 — now
 
@@ -9,51 +9,130 @@ and PRs (`feat/hdr-101-...`).
 |---|---|---|---|
 | DNG-101 | User-supplied calibration file format | — | Loads ColorMatrix1/2 + black/white; documented |
 | DNG-102 | Load calibration in the DNG writer | DNG-101 | 12/50 MP DNG uses supplied profile |
-| DNG-103 | Validate RAW 12/50 in Lightroom/Photoshop | DNG-102 | Correct color/levels; screenshots not committed |
-| HDR-101 | Textured static HDR comparison | — | 12 MP vs HDR vs LMC/stock; metrics |
-| HDR-102 | Moving-subject ghosting test | HDR-101 | Ghosting documented; go/no-go for motion masks |
+| DNG-103 | Validate RAW 12/50 in Lightroom/Photoshop | DNG-102 | Correct colour/levels; no personal screenshots |
+| HDR-101 | Textured static HDR comparison | — | 12 MP vs HDR vs stock/LMC; metrics |
+| HDR-102 | Moving-subject ghosting test | HDR-101 | Ghosting documented; motion-mask decision |
 | HDR-103 | Tone/weight tuning | HDR-101 | Natural look; no clipped highlights |
+| STILL-101 | One 25 MP (5888×4416) probe | — | Works or documented HAL rejection; no fake file |
 | JPEG-101 | Document 50 MP JPEG limitation | — | README/STATUS/CAPTURE_MODES updated |
+| CAP-101 | Capability baseline | — | `docs/STATUS.md` lists still/video/ISO limits |
 | CI-101 | Keep public CI/release green | — | Green on main and tags |
-| DOC-101 | Handbook + agent rules | — | This docs set reviewed |
+| DOC-101 | Full parity documentation | — | FEATURE_PARITY/ROADMAP/BACKLOG merged |
 
 ## P1 — next
 
+### Video and audio
+
 | ID | Task | Depends on | Acceptance |
 |---|---|---|---|
-| LIVE-101 | Camera2 video output surface | — | Preview + video encoder surface in one session |
-| LIVE-102 | HEVC encoder + encoded ring buffer | LIVE-101 | 3 s pre-roll without raw-frame memory |
-| LIVE-103 | AudioRecord + AAC ring | — | 48 kHz stereo, 256 kbps |
-| LIVE-104 | MediaMuxer 3 s + 3 s | LIVE-102/103 | 6.0 s ±50 ms |
-| LIVE-105 | Motion Photo XMP assembly | LIVE-104 | Opens in Google Photos |
-| VIDEO-101 | 4K 4:3 30 fps recording | LIVE-101 | 4096×3072, HEVC, stable |
-| VIDEO-102 | 4K 16:9 60 fps | VIDEO-101 | 3840×2160, stable |
-| VIDEO-103 | Stereo audio + sync | LIVE-103 | A/V drift <50 ms |
+| VIDEO-101 | 4K 4:3 4096×3072 @30 | — | HEVC MP4, stable, playable |
+| VIDEO-102 | 4K 16:9 3840×2160 @60 | VIDEO-101 | 60 fps, stable |
+| VIDEO-103 | Stereo AAC + mux | — | 48 kHz stereo 256 kbps, A/V sync |
+| VIDEO-104 | EIS/OIS + crop/FOV measurement | VIDEO-101 | Stable handheld; documented FOV |
+| VIDEO-105 | Bitrate, lock lens, lock WB, mic status | VIDEO-103 | Controls work; no mid-clip switch |
+| VIDEO-106 | 1080p 120 | VIDEO-101 | 120 fps timeline, audio |
+| VIDEO-107 | 720p 60 | VIDEO-101 | Stable |
+| VIDEO-108 | Front 1080p 60/120 | VIDEO-101 | Front max 8 MP; no 4K claim |
+
+### Live Photo
+
+| ID | Task | Depends on | Acceptance |
+|---|---|---|---|
+| LIVE-101 | Camera2 video output surface | — | Preview + encoder in one session |
+| LIVE-102 | HEVC encoder + encoded ring | LIVE-101 | 3 s pre-roll, bounded memory |
+| LIVE-103 | AudioRecord + AAC ring | — | 48 kHz stereo 256 kbps |
+| LIVE-104 | Mux 3 s + 3 s | LIVE-102/103 | 6.0 s ±50 ms |
+| LIVE-105 | Motion Photo XMP | LIVE-104 | Opens in Google Photos |
+
+### Pro, zoom, gallery
+
+| ID | Task | Depends on | Acceptance |
+|---|---|---|---|
+| PRO-101 | Manual ISO/shutter/WB/focus/EV | — | Camera2 manual controls, live readout |
+| PRO-102 | Histogram, level, grid | PRO-101 | Accurate, non-blocking overlays |
+| PRO-103 | Focus peaking + magnifier | PRO-101 | Usable at 1×/3×/macro |
+| PRO-104 | Presets import/export/edit | PRO-101 | JSON format documented |
+| ZOOM-101 | Smooth zoom/lens hand-off | — | No crash; latency/FOV measured |
+| ZOOM-102 | Front camera digital zoom | — | Works within front sensor limit |
 | UI-101 | Gallery/MediaStore | — | Saved photo appears in gallery |
-| UI-102 | Mode labels and 50 MP message | — | Clear “use R50” state |
+| UI-102 | Mode labels + 50 MP message | — | Clear “use R50” state |
+| UI-103 | Global EV slider | — | Photo/video EV works |
+| UI-104 | Tap zoom → focal length | ZOOM-101 | 0.6/1/3/6× presets |
 
 ## P2 — later
 
+### Still modes
+
 | ID | Task | Depends on | Acceptance |
 |---|---|---|---|
-| HDR-201 | Rotation/parallax alignment | HDR-102 | Lower ghosting on handheld scenes |
-| HDR-202 | Motion masks | HDR-201 | Moving subjects do not smear |
-| COLOR-201 | User LUT/color profiles | DNG-102 | No vendor assets; user-supplied only |
-| VIDEO-201 | 10-bit P010 / HDR profile | VIDEO-101 | Encoder accepts; metadata correct |
-| VIDEO-202 | Stabilization tuning | VIDEO-101 | Smooth handheld 4K |
-| REL-201 | Beta signing via CI secrets | — | Non-debug key; documented |
-| DEV-201 | Multi-device support | — | At least one non-OP13 device |
+| STILL-201 | 10-bit HEIF stills | CAP-101 | File opens; 10-bit verified or closed |
+| STILL-202 | Ultra HDR / gainmap JPEG | — | Gainmap renders in Android/Photos |
+| STILL-203 | Night mode | HDR-103 | Better shadows/noise; no watercolor |
+| STILL-204 | Long exposure | PRO-101 | Up to sensor limit; noise handling |
+| STILL-205 | Burst/motion/shadow-free | HDR-102 | Sharp moving subject; aligned |
+| STILL-206 | Panorama | — | Stitch seams acceptable |
+| STILL-207 | Document/QR scanner | — | Crop/perspective; QR decode |
+
+### Portrait, macro, video extras
+
+| ID | Task | Depends on | Acceptance |
+|---|---|---|---|
+| PORT-101 | Portrait bokeh (depth/segmentation) | — | Natural edges; depth saved |
+| PORT-102 | Portrait zoom/flash/lens pack | PORT-101 | 35/50/85 equivalents |
+| MACRO-101 | Macro mode + close focus UI | — | Focus at minimum distance |
+| MACRO-102 | Tele macro | MACRO-101 | Tele close-up works |
+| MACRO-103 | Focus stack/depth fusion | MACRO-101 | Sharp front-to-back stack |
+| VIDEO-201 | P010/HDR10 or HLG | VIDEO-101 | 10-bit file, correct metadata |
+| VIDEO-202 | Sound focus | VIDEO-103 | Directional audio documented |
+| VIDEO-203 | Auto frame rate | VIDEO-101 | Switches 24/30/60 safely |
+| VIDEO-204 | 720p480 experimental | VIDEO-106 | Stable or closed |
+| VIDEO-205 | Timelapse | VIDEO-101 | Interval + encode |
+| VIDEO-206 | Filters at all resolutions | COLOR-201 | No 1080p30 restriction |
+
+### Colour, watermark, editor
+
+| ID | Task | Depends on | Acceptance |
+|---|---|---|---|
+| COLOR-201 | 33³ `.cube` LUT import | — | User LUT applies; no bundled LUTs |
+| COLOR-202 | Original film looks + grain/vignette | — | No branded lookalikes |
+| COLOR-203 | Watermark editor (text/image) | — | Original templates; user assets |
+| COLOR-204 | 65:24 panorama mode | STILL-206 | Generic aspect; no XPAN branding |
+| UI-201 | Basic editor (crop/rotate/filter/watermark) | UI-101 | Non-destructive save |
+| UI-202 | Optional subtle beauty | — | Off by default; natural look |
+| UI-203 | Underwater colour preset | — | Niche; no hardware claim |
+| UI-204 | Debug/diagnostics screen | — | Logs/export, no PII |
+
+## P3 — research
+
+| ID | Task | Depends on | Acceptance |
+|---|---|---|---|
+| AI-301 | Open-model object erase | UI-201 | Optional model; no vendor assets |
+| AI-302 | Open-model deblur/enhance | UI-201 | Quality/size measured |
+| AI-303 | Relight/best-expression | AI-301 | Optional; privacy-safe |
+| COLOR-301 | LUT analysis from before/after | COLOR-201 | Fitted transform quality |
+| COLOR-302 | Filter repository | COLOR-201 | Moderation/backend design |
+| STILL-301 | Multi-frame super-res tele | PRO-103 | Measurable detail gain |
+| STILL-302 | Astro/star/moon stacking | STILL-204 | Clean star field; no vendor algorithm |
+| VIDEO-301 | Dual-view video (front+rear) | VIDEO-101 | Works only if concurrent cameras supported |
+| AI-304 | Clean scene detection | — | Optional; no vendor model |
+| DEV-301 | Multi-device support | — | At least one non-OP13 device |
+| UI-301 | Niche modes (light-field, magnetic flash) | — | Only with real hardware support |
 
 ## Blocked / closed
 
 | ID | Reason |
 |---|---|
 | JPEG-50 | HAL returns 1920×1440 for 8192×6144 JPEG; use RAW 50 |
-| LUT-PUBLIC | Vendor LUT/calibration assets are not redistributable; public build omits them |
+| VIDEO-4K120 | Not advertised; module reports OnePlus 13 freezes |
+| VIDEO-FRONT4K | Front max 3280×2464; vendor upscale only |
+| VIDEO-DOLBY | Dolby licence/vendor encoder; use HDR10/HLG |
+| LUT-BRANDED | Vendor/branded LUTs are not redistributable |
+| AI-VENDOR | Vendor models are proprietary; clean/open alternatives only |
+| MARK-BRANDED | Hasselblad/GR/LUMO/XPAN marks require rights |
 
 ## How to pick work
 
 1. P0 before P1; unblock dependencies first.
-2. One task per PR.
-3. If a task needs a hardware decision, add an ADR before coding.
-4. If evidence contradicts the plan, update the plan — do not force the feature.
+2. One task per PR; update the parity matrix and `STATUS.md`.
+3. If the HAL contradicts the plan, close the task with evidence — do not fake it.
+4. If a task needs a hardware/licensing decision, add an ADR before coding.

@@ -11,6 +11,8 @@ Context → Decision → Alternatives → Consequences → Status.
 | [0004](0004-hdr-bracketing-and-alignment.md) | HDR bracketing + NCC alignment + Mertens |
 | [0005](0005-no-vendor-assets-in-public.md) | No vendor assets or LMC modules in public |
 | [0006](0006-50mp-jpeg-not-pursued.md) | 50 MP JPEG closed; use RAW 50 |
+| [0007](0007-clean-room-feature-parity.md) | Clean-room parity; no GPL/vendor code |
+| [0008](0008-hdr-video-without-dolby.md) | HDR10/HLG instead of Dolby Vision |
 
 Add a new ADR for changes to architecture, package identity, licensing, public
 scope, or a hard-to-reverse pipeline choice. Update the index.

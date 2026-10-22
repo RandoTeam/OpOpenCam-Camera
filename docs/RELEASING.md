@@ -5,9 +5,9 @@
 Semantic Versioning with alpha/beta suffixes:
 
 ```
-0.1.0-alpha.1   first device-verified engine
-0.2.0-beta.1    feature-complete beta
-1.0.0           stable
+0.3.0-alpha.1   first full still/RAW/HDR alpha (current)
+0.4.0-beta.1    video + Live Photo + Pro mode beta
+1.0.0           stable parity release
 ```
 
 Version sources that must match:

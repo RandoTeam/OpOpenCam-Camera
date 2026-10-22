@@ -9,6 +9,7 @@ matches your role.
 |---|---|
 | [PROJECT.md](PROJECT.md) | Vision, goals, non-goals, constraints and success criteria |
 | [STATUS.md](STATUS.md) | What is verified today, what is partial, known issues |
+| [FEATURE_PARITY.md](FEATURE_PARITY.md) | Full stock + OPCameraPro feature map, feasibility, priorities |
 | [PIPELINE.md](PIPELINE.md) | End-to-end camera pipeline and data flow |
 | [ROADMAP.md](ROADMAP.md) | Now / next / later milestones and acceptance criteria |
 | [BACKLOG.md](BACKLOG.md) | Prioritized task list with IDs and dependencies |
@@ -30,11 +31,12 @@ matches your role.
 
 ## Quick paths
 
-**New contributor:** PROJECT → STATUS → PIPELINE → ROADMAP → CONTRIBUTING → TESTING.
+**New contributor:** PROJECT → STATUS → FEATURE_PARITY → PIPELINE → ROADMAP →
+CONTRIBUTING → TESTING.
 
 **AI agent:** start at the repository root `AGENTS.md` (short pointer), then read
-AGENTS → STATUS → ROADMAP → PIPELINE → TESTING. Follow the workflow and Definition
-of Done in AGENTS.md.
+AGENTS → STATUS → FEATURE_PARITY → ROADMAP → PIPELINE → TESTING. Follow the workflow
+and Definition of Done in AGENTS.md.
 
 **Release manager:** RELEASING → CI → STATUS → CHANGELOG.
 
@@ -45,10 +47,11 @@ of Done in AGENTS.md.
 When documents disagree:
 
 1. `STATUS.md` for what is actually verified.
-2. `ROADMAP.md` for priorities.
-3. `PIPELINE.md` / `ARCHITECTURE.md` for design.
-4. `AGENTS.md` for process rules.
-5. `DECISIONS/` for why a design was chosen.
+2. `FEATURE_PARITY.md` for the full stock/module surface and feasibility.
+3. `ROADMAP.md` for priorities.
+4. `PIPELINE.md` / `ARCHITECTURE.md` for design.
+5. `AGENTS.md` for process rules.
+6. `DECISIONS/` for why a design was chosen.
 
 Update the relevant document in the same PR as the code change.
 

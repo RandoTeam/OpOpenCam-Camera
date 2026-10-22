@@ -18,6 +18,8 @@ the interface is **Jetpack Compose**.
 The goal is not another GCam port. The goal is a camera we control end to end:
 direct Camera2 NDK access, a detail-preserving multi-frame pipeline, 4:3 4K recording,
 and a Live Photo implementation with real stereo sound and a full 3 s + 3 s window.
+The full stock/OPCameraPro feature map is in
+[../docs/FEATURE_PARITY.md](../docs/FEATURE_PARITY.md).
 
 ---
 

@@ -27,13 +27,26 @@ pipeline that does not turn photographs into “watercolor”.
 | G6 | 4K 4:3 30 fps and 4K 16:9 60 fps video |
 | G7 | A fast, beautiful Compose UI with real animations |
 | G8 | Open, auditable, legally clean public source |
+| G9 | Full clean parity with stock/module features where technically possible |
+| G10 | Pro mode: manual ISO/shutter/WB/focus, overlays, RAW |
+| G11 | 1080p 120, 720p 60, front video, stereo audio, EIS/OIS |
+| G12 | Portrait, macro, night, burst, panorama, document scanning |
+| G13 | Original filters/LUT engine, watermark editor, basic gallery/editor |
+| G14 | 10-bit P010/HDR10 and Android Ultra HDR where supported |
 
 ## Non-goals
 
 - Rooting, unlocking the bootloader, flashing or modifying system partitions.
 - Redistributing stock APKs, vendor libraries, LUTs, EEPROM or calibration data.
 - Rebuilding Google Camera or shipping Google’s proprietary HDR+ pipeline.
+- Copying the GPL-3.0 `com.tlsu.opluscamerapro` code or its vendor-hook approach.
+- Cloning vendor-only features that cannot be implemented cleanly: 50 MP JPEG,
+  4K 120, front 4K, Dolby Vision, Hasselblad/GR/LUMO/XPAN branding, AI super-res
+  and vendor AI gallery models.
 - Supporting every Android device in the first release; the target is OnePlus 13.
+
+See [FEATURE_PARITY.md](FEATURE_PARITY.md) for the full mapping and the honest
+“not portable” list.
 
 ## Target and constraints
 
@@ -49,10 +62,12 @@ pipeline that does not turn photographs into “watercolor”.
 release automation. *Mostly done — see [STATUS.md](STATUS.md).*
 
 **Mid term (beta):** calibrated DNG, HDR quality on textured/moving scenes,
-Live Photo 6 s with stereo audio, 4K 4:3 video, gallery integration.
+Live Photo 6 s with stereo audio, 4K 4:3/16:9 video, 1080p 120, Pro mode, smooth
+zoom, gallery integration.
 
-**Long term (stable):** 10-bit HDR video, advanced alignment/ghosting, user-supplied
-LUT/color profiles, polished UX, reproducible releases.
+**Long term (stable):** portrait/macro/night/burst/panorama, user LUTs and original
+filters, watermark editor, 10-bit P010/HDR10, Ultra HDR, gallery editor, polished
+UX, reproducible releases. Vendor-only features remain documented as not portable.
 
 ## Principles
 
@@ -62,7 +77,11 @@ LUT/color profiles, polished UX, reproducible releases.
 4. **Preserve detail.** No aggressive neural denoise or over-sharpening.
 5. **Public/private separation.** Vendor research stays private.
 6. **Legal hygiene.** MIT for our code; no proprietary assets in public.
-7. **User safety.** Re-enable the stock camera after tests; never wipe data.
+7. **Clean-room parity.** Reproduce behaviour from specs and tests, never copy
+   GPL/vendor code; a clean alternative is better than a cloned trademark.
+8. **User safety.** Re-enable the stock camera after tests; never wipe data.
+9. **Benefit over checkbox.** Do not ship a feature that produces worse photos just
+   to match a list; document the trade-off.
 
 ## Roles
 

@@ -34,6 +34,19 @@ If a document disagrees with reality, update the document in the same PR.
 5. **License changes require human approval.** MIT is the current license; do not
    relicense or add incompatible assets.
 
+### Feature parity and clean-room work
+
+- **Clean-room only.** `com.tlsu.opluscamerapro` is GPL-3.0 and hooks the stock
+  app. Never copy its code, resources, vendor tags dumps or assets into this MIT
+  repository. Use public feature descriptions, observed behaviour and your own
+  tests.
+- **No branded lookalikes.** Do not reproduce Hasselblad/GR/LUMO/XPAN marks,
+  branded filters (Jiang Wen, Jia Zhangke, etc.) or vendor LUTs. Build original
+  looks and allow user-supplied LUTs.
+- **Scope honesty.** Vendor-only features (50 MP JPEG, 4K120, front 4K, Dolby
+  Vision, AI super-res, vendor AI gallery) are documented as not portable unless
+  new evidence proves a clean path. Do not promise them in UI or release notes.
+
 ### Truthfulness
 
 6. **No fake success.** A feature is “done” only after live device evidence:
@@ -148,7 +161,8 @@ A task is done when all are true:
 - [ ] `check.ps1` passes; CI is green.
 - [ ] Device evidence exists for camera behavior (dimensions, format, logs).
 - [ ] `STATUS.md`, `ROADMAP.md`/`BACKLOG.md`, `CHANGELOG.md` are updated.
-- [ ] No secrets, PII, vendor assets or build artifacts.
+- [ ] `FEATURE_PARITY.md` status is updated for stock/module features.
+- [ ] No secrets, PII, vendor assets, GPL module code or build artifacts.
 - [ ] Version files match (if user-visible).
 - [ ] Known limitations are stated honestly.
 
@@ -161,10 +175,20 @@ A task is done when all are true:
 - **DNG calibration is user-supplied.** Do not bundle vendor ColorMatrix, LUT or
   EEPROM data in the public repo.
 - **HDR evidence** must include a textured scene, not a blurry close-up.
+- **25 MP is one probe, not a campaign.** Request 5888×4416 once; if the HAL
+  returns smaller, reject and close it. Do not loop through vendor flags.
+- **4K120, front 4K and Dolby Vision are not portable** on this device/module
+  evidence. Do not add UI that implies they work.
+- **10-bit/HDR:** verify the actual bit depth, colour profile and metadata with a
+  file; “HDR” in the UI without metadata is a failure.
+- **Branded looks:** no Hasselblad/GR/LUMO/XPAN marks or branded filters; use
+  original designs and user-supplied LUTs.
 - **Lens switching** is a session restart in the current implementation; do not
   claim seamless zoom until measured.
 - **Thermals:** long HDR/RAW/video tests must record device temperature and
   dropped frames.
+- **Parity matrix:** when a stock/module feature is implemented or closed, update
+  [FEATURE_PARITY.md](FEATURE_PARITY.md) and the matching backlog ID.
 - **Stock camera:** if you disable it for a test, re-enable it and record the
   command in the PR.
 

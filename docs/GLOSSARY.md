@@ -26,3 +26,15 @@
 | **HAL fallback** | Retrying 12 MP JPEG when a requested mode is rejected |
 | **SOF** | JPEG Start Of Frame marker; contains real image dimensions |
 | **Package identity** | Installed applicationId; `com.oneplus.camera` unlocks Chi HAL features |
+| **25 MP Turbo RAW** | Vendor mode advertised by the module; 5888×4416; not in Camera2 stream configs |
+| **ProXDR** | OPlus HDR display/photo pipeline; vendor-specific |
+| **Ultra HDR** | Android JPEG + gainmap HDR format; cross-device |
+| **Gainmap** | Auxiliary HDR luminance map appended to an SDR image |
+| **HEIF/HEIC** | HEVC-based still image container; 10-bit capable |
+| **HDR10/HLG** | Open HDR video transfer/metadata standards; alternative to Dolby Vision |
+| **Dolby Vision** | Licensed HDR format; requires Dolby/vendor support |
+| **LUT** | Look-up table for colour grading; `.cube` 33³ is the user format |
+| **Depth map** | Per-pixel distance image used for portrait/bokeh |
+| **Focus stacking** | Merge multiple focus distances into one sharp macro image |
+| **Native 4K** | Real 3840×2160+ stream; not an upscale |
+| **Vendor-only** | Requires stock app/system signature/proprietary algorithm; not cleanly portable |

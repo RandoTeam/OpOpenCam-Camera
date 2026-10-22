@@ -75,6 +75,32 @@ APK. The release workflow builds `app-release.apk` and its SHA-256. See [CI.md](
 - 10-minute video; temperature, dropped frames, storage.
 - Background/foreground, rotation, permission denial.
 
+### T5 — video parity
+
+- 4K 4:3 30 / 4K 16:9 60: dimensions, fps, duration, A/V sync.
+- 1080p 120, 720p 60, front 1080p: playback speed and audio.
+- EIS/OIS: FOV/crop, handheld stability.
+- Lock lens/WB, mic status, bitrate, stop sound.
+- 10-bit P010: bit depth, profile, HDR10/HLG metadata.
+- 4K120/front 4K/Dolby: must remain documented as unavailable, not tested as
+  “working” with upscaled output.
+
+### T6 — still and Pro parity
+
+- 25 MP probe: real 5888×4416 or documented rejection.
+- 10-bit HEIF / Ultra HDR: bit depth/gainmap verified by a reader.
+- Night/long exposure/burst/motion/panorama/document.
+- Pro: manual ISO/shutter/WB/focus, histogram/level/peaking, JPEG+DNG.
+- Portrait: depth/segmentation edges; macro: focus stack sharpness.
+
+### T7 — colour, watermark, gallery
+
+- LUT import: 33³ `.cube`, before/after screenshots (sanitized).
+- Original filters: no branded assets; per-mode ordering.
+- Watermark editor: text/image/layout export.
+- Gallery: MediaStore visibility, share/delete/favourite, EXIF.
+- Editor: non-destructive crop/rotate/filter/watermark export.
+
 ## Evidence requirements
 
 For each camera test, record:
@@ -84,7 +110,11 @@ For each camera test, record:
 - logcat lines (`OpOpenCamNative`);
 - output path, file size, dimensions/format;
 - for DNG: TIFF/DNG tags (width, height, bits, DNGVersion, black/white);
-- for video/Motion Photo: `ffprobe` streams/durations;
+- for 25 MP: actual JPEG SOF dimensions vs requested 5888×4416;
+- for 10-bit/HDR: bit depth, colour profile, HDR10/HLG/gainmap metadata;
+- for video/Motion Photo: `ffprobe` streams/durations/audio channels;
+- for portrait/macro: depth map presence and edge/focus-stack quality;
+- for LUT/filters/watermark: before/after, no branded assets;
 - latency and thermal observations.
 
 **Do not commit personal photos or raw device dumps.** Keep them local under

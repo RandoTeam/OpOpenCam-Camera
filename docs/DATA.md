@@ -44,3 +44,11 @@ If data must be shared, remove:
 - any `dumpsys` sections containing package/UID/account data.
 
 Share only the derived capability tables and code.
+
+## OPCameraPro audit
+
+The GPL-3.0 `com.tlsu.opluscamerapro` source mirror was reviewed locally for
+feature discovery. It is not vendored, submoduled or committed. Only a derived,
+behaviour-level feature list and feasibility notes are published in
+[FEATURE_PARITY.md](FEATURE_PARITY.md); no module code, resources, LUTs or vendor-tag
+dumps are copied into the public repository.

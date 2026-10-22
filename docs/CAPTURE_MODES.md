@@ -58,6 +58,41 @@ Current limitation: translation-only alignment. Rotation, parallax and moving
 subjects can still ghost; feature/optical-flow alignment is the next quality step.
 HAL `EnableSHDR`/`EnableQHDR` vendor tags will be tested as an additional path.
 
+## 25 MP (experimental)
+
+The module exposes a vendor “25 MP Turbo RAW” path (advertised output 5888×4416).
+Camera2 does not advertise a 25 MP stream; the module uses vendor flags inside the
+stock app. OpOpenCam will make **one** time-boxed attempt to request 5888×4416 JPEG
+through the same vendor session mode used for RAW 50. If the HAL returns a smaller
+JPEG, the SOF guard rejects it and the mode is closed. Do not upscale.
+
+## Planned still modes
+
+| Mode | Plan | Priority |
+|---|---|---|
+| 25 MP | one vendor-mode probe; close if not real | P0 |
+| 10-bit HEIF | `HeifWriter`/HEVC 10-bit, if supported | P2 |
+| Ultra HDR | SDR JPEG + Android gainmap | P2 |
+| Night | multi-frame bracket + merge | P2 |
+| Long exposure | manual shutter up to sensor limit | P2 |
+| Burst/motion | ring buffer + alignment + selection | P2 |
+| Panorama | gyro/feature stitch; 65:24 crop | P2 |
+| Document | edge detect + perspective crop + QR | P2 |
+
+## Pro and manual modes
+
+- Manual ISO, shutter, WB, focus and EV; values clamped to Camera2 ranges.
+- Histogram, level, grid, focus peaking and magnified focus overlays.
+- JPEG and DNG output from the same Pro UI.
+- Presets stored as JSON; no vendor preset assets.
+
+## Portrait and macro
+
+- Portrait: depth map or on-device segmentation; depth-aware blur; save depth for
+  later edits. No vendor portrait model.
+- Macro: close-focus UI and tele-macro; optional focus bracketing + stacking.
+- Do not claim AI super-resolution/tele algorithms; those are vendor-only.
+
 ## Lens mapping
 
 | UI | Camera ID | Role |
@@ -96,3 +131,7 @@ show `HAL fallback: …`.
 - [x] Lens 0.6/1×/3×: cameras 3/0/4 verified; restart ~50 ms.
 - [x] Mode/lens restart keeps preview alive.
 - [ ] Thermal test: 10 HDR and 10 RAW 50 captures.
+- [ ] 25 MP: one 5888×4416 probe; close if HAL returns smaller.
+- [ ] 10-bit HEIF/Ultra HDR: file opens with correct bit depth/gainmap.
+- [ ] Pro mode: manual ISO/shutter/WB/focus, histogram/level/peaking.
+- [ ] Portrait/macro/night/burst/panorama/document modes.

@@ -12,9 +12,13 @@ This file is a short entry point. The canonical plan lives in:
 
 1. DNG calibration with user-supplied profiles.
 2. HDR quality on textured/moving scenes.
-3. Live Photo 6 s (3 s before + 3 s after), 4:3, stereo AAC.
-4. 4K 4:3 30 fps / 4K 16:9 60 fps video.
-5. UI/gallery and beta releases.
+3. 25 MP probe; 50 MP JPEG remains closed (RAW 50 is the max path).
+4. Video core: 4K 4:3 30 / 4K 16:9 60, 1080p 120, stereo audio.
+5. Live Photo 6 s (3 s before + 3 s after), 4:3, stereo AAC.
+6. Pro mode, portrait/macro/zoom, LUTs/watermarks, gallery/editor.
+7. 10-bit P010/HDR10, Ultra HDR stills; no Dolby Vision.
+
+Full parity map: [docs/FEATURE_PARITY.md](docs/FEATURE_PARITY.md).
 
 ## Publication status
 

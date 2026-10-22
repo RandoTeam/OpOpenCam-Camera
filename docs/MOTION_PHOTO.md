@@ -58,6 +58,22 @@ ring would be ~3 GB at 30 fps; an 80–120 Mbps HEVC ring is ~60–90 MB.
   `ffprobe`.
 - Thermal: 4K 4:3 30 fps encode is the worst case; test 1/3/10 minutes.
 
+## Module parity
+
+The module exposes Live Photo high bitrate, adjustable duration, Master-mode Live
+Photo, FOV optimization, HEIF/10-bit Live Photo and cover ProXDR. Our clean plan:
+
+| Feature | Plan | Priority |
+|---|---|---|
+| High bitrate | 45–120 Mbps preset | P1 |
+| Adjustable duration | 3+3 default; 1–6 s presets | P2 |
+| Master/Pro Live Photo | Pro controls + Live Photo | P2 |
+| FOV optimization | match still/video crop; document FOV | P2 |
+| HEIF/10-bit Live Photo | HEIF container + 10-bit video | P3 |
+| Cover ProXDR | Android gainmap cover | P3 |
+
+No vendor Live Photo code or assets are used.
+
 ## Verification checklist
 
 - `ffprobe` shows exactly one HEVC video track and one AAC stereo track.

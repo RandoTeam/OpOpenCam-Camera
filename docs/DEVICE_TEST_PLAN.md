@@ -117,6 +117,17 @@ Acceptance: stable 30/60 fps, no overheating shutdown, audio in sync.
 - Same scene: our HDR vs LMC 8.3 vs stock.
 - Metrics: highlight clipping, shadow noise, detail retention, color, file size, capture time.
 
+### T9 — Full parity features
+- 25 MP probe: 5888×4416 or documented HAL rejection.
+- 10-bit HEIF / Ultra HDR: bit depth/gainmap verified by a reader.
+- Pro mode: manual ISO/shutter/WB/focus, histogram/level/peaking, JPEG+DNG.
+- Portrait/macro: depth map or segmentation edges; focus stack sharpness.
+- LUT import, original filters, watermark editor; no branded assets.
+- Gallery/editor: MediaStore, share/delete/favourite, non-destructive export.
+- Video: 1080p 120, 720p 60, front 1080p, lock lens/WB, mic status.
+- Negative tests: 4K120, front 4K, Dolby Vision must remain unavailable/documented,
+  not “fixed” by upscaling.
+
 ## 5. Offline work while the phone is disconnected
 
 Possible now:
