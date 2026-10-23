@@ -114,6 +114,8 @@ fun CameraScreen() {
     var recording by remember { mutableStateOf(false) }
     var videoBusy by remember { mutableStateOf(false) }
     var switching by remember { mutableStateOf(false) }
+    var showGallery by remember { mutableStateOf(false) }
+    var galleryItems by remember { mutableStateOf<List<GalleryItem>>(emptyList()) }
     var recorder by remember { mutableStateOf<VideoRecorder?>(null) }
     var audioGranted by remember {
         mutableStateOf(
@@ -132,6 +134,10 @@ fun CameraScreen() {
         withContext(Dispatchers.IO) { NativeBridge.nativeSetZoom(zoom) }
     }
 
+    LaunchedEffect(Unit) {
+        galleryItems = withContext(Dispatchers.IO) { listGalleryItems(context) }
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -148,6 +154,10 @@ fun CameraScreen() {
 
     LaunchedEffect(Unit) {
         if (!hasCamera) permissionLauncher.launch(Manifest.permission.CAMERA)
+    }
+
+    LaunchedEffect(Unit) {
+        galleryItems = withContext(Dispatchers.IO) { listGalleryItems(context) }
     }
 
     val surfaceView = remember {
@@ -274,6 +284,7 @@ fun CameraScreen() {
             }
             result.onSuccess {
                 val suffix = if (published != null) " · Gallery" else " · not indexed"
+                galleryItems = withContext(Dispatchers.IO) { listGalleryItems(context) }
                 status = "Saved ${it.name}$suffix"
                 Toast.makeText(context, "Saved ${it.name}$suffix", Toast.LENGTH_SHORT).show()
             }.onFailure {
@@ -524,6 +535,7 @@ fun CameraScreen() {
                                     else -> "Capture failed - see logcat"
                                 }
                             }
+                            galleryItems = withContext(Dispatchers.IO) { listGalleryItems(context) }
                             status = result
                             capturing = false
                             Toast.makeText(context, result, Toast.LENGTH_SHORT).show()
@@ -560,6 +572,20 @@ fun CameraScreen() {
                 color = if (recording) Color(0xFFFF5252) else Color.White.copy(alpha = 0.55f),
                 fontSize = 11.sp
             )
+        }
+
+        Box(
+            Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 20.dp, bottom = 42.dp)
+        ) {
+            LatestMediaThumbnail(context, galleryItems.firstOrNull()) {
+                showGallery = true
+            }
+        }
+
+        if (showGallery) {
+            GalleryOverlay(context) { showGallery = false }
         }
     }
 }
