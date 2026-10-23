@@ -28,7 +28,7 @@ use crate::sensors::{
     VENDOR_TAG_ENABLE_IDEAL_RAW, VENDOR_TAG_OPLUS_PACKAGE_NAME, VENDOR_TAG_ULTRA_RESOLUTION_MODE,
 };
 
-const PREVIEW_WIDTH: i32 = 1920;
+const PREVIEW_WIDTH: i32 = 1440;
 const PREVIEW_HEIGHT: i32 = 1080;
 const CAPTURE_TIMEOUT: Duration = Duration::from_secs(15);
 
@@ -50,8 +50,9 @@ const AE_MODE_ON: u8 = 1;
 const AF_MODE_CONTINUOUS_PICTURE: u8 = 4;
 const AWB_MODE_AUTO: u8 = 1;
 const JPEG_QUALITY: u8 = 95;
-/// Portrait rear shooting. The HAL writes this into EXIF for JPEG outputs.
-const JPEG_ORIENTATION: i32 = 90;
+/// Rear sensor is 90°; front sensor is 270° in this portrait-locked app.
+const JPEG_ORIENTATION_REAR: i32 = 90;
+const JPEG_ORIENTATION_FRONT: i32 = 270;
 const RAW_BLACK_LEVEL: u32 = 64;
 const RAW_WHITE_LEVEL_10BIT: u32 = 1023;
 
@@ -708,10 +709,14 @@ impl CameraEngine {
         sys::ACaptureRequest_setEntry_u8(request, TAG_AWB_MODE, 1, &awb);
     }
 
-    unsafe fn apply_jpeg_entries(request: *mut sys::ACaptureRequest) {
+    unsafe fn apply_jpeg_entries(&self, request: *mut sys::ACaptureRequest) {
         let quality = JPEG_QUALITY;
         sys::ACaptureRequest_setEntry_u8(request, TAG_JPEG_QUALITY, 1, &quality);
-        let orientation = JPEG_ORIENTATION;
+        let orientation = if self.camera_id == "1" {
+            JPEG_ORIENTATION_FRONT
+        } else {
+            JPEG_ORIENTATION_REAR
+        };
         sys::ACaptureRequest_setEntry_i32(request, TAG_JPEG_ORIENTATION, 1, &orientation);
     }
 
@@ -830,7 +835,7 @@ impl CameraEngine {
         self.clear_still_frames();
         let request = unsafe { self.create_still_request()? };
         unsafe {
-            Self::apply_jpeg_entries(request);
+            self.apply_jpeg_entries(request);
             let mut requests = [request];
             self.submit_requests(&mut requests)?;
         }
@@ -892,6 +897,7 @@ impl CameraEngine {
                 pixels[y * width + x] = u16::from_le_bytes([plane[i], plane[i + 1]]);
             }
         }
+        let orientation = if self.camera_id == "1" { 8 } else { 6 };
         write_dng_16bit(
             path,
             width as u32,
@@ -900,6 +906,7 @@ impl CameraEngine {
             "OnePlus 13",
             RAW_BLACK_LEVEL,
             RAW_WHITE_LEVEL_10BIT,
+            orientation,
         )
         .map_err(|e| format!("write DNG {}: {}", path, e))?;
         info!("Camera2 NDK: saved DNG {}x{} to {}", width, height, path);

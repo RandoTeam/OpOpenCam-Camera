@@ -19,6 +19,9 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   app-specific copy is kept.
 - Still captures now apply the current zoom ratio, not only preview zoom.
 - Photo/Video separated at the top of the capture deck; 50 MP JPEG chip removed.
+- Preview switched to 4:3 (1440×1080) so framing matches the 4:3 still.
+- DNG `ColorMatrix1` fixed to XYZ→camera with SRATIONAL; TIFF orientation 6/8.
+- Blocking preview restart/zoom moved off the main thread; zoom coalesced at ~50 Hz.
 - Capture timing log (`Camera2 NDK: capture ... finished in ...`).
 - Photo-first roadmap: saving/gallery, speed, smooth zoom, 25 MP RAW probe and UI
   redesign are P0; video is frozen.

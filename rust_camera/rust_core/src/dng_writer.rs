@@ -17,6 +17,7 @@ pub fn write_dng_16bit<P: AsRef<Path>>(
     model_name: &str,
     black_level: u32,
     white_level: u32,
+    orientation: u16,
 ) -> std::io::Result<()> {
     let file = File::create(path)?;
     let mut writer = BufWriter::new(file);
@@ -32,20 +33,19 @@ pub fn write_dng_16bit<P: AsRef<Path>>(
     let camera_unique = format!("OnePlus 13 ({})\0", model_name);
     let software_str = b"MasterCam Pure Rust Engine v1.0\0";
 
-    // Generic sRGB D65 RGB-to-XYZ matrix (public standard). This is a neutral
-    // fallback, not a per-sensor calibration. Accurate color requires a
-    // ColorMatrix calibrated for the specific sensor; no vendor calibration
-    // data is bundled with the public build.
+    // Generic sRGB D65 fallback. DNG ColorMatrix1 maps XYZ -> camera native;
+    // this is the inverse of the public sRGB->XYZ matrix, not a per-sensor
+    // calibration. Accurate color still requires a user-supplied ColorMatrix.
     let color_matrix_rationals: [(i32, i32); 9] = [
-        (4_124_564, 10_000_000),
-        (3_575_761, 10_000_000),
-        (1_804_375, 10_000_000),
-        (2_126_729, 10_000_000),
-        (7_151_522, 10_000_000),
-        (721_750, 10_000_000),
-        (193_339, 10_000_000),
-        (1_191_920, 10_000_000),
-        (9_503_041, 10_000_000),
+        (32_404_542, 10_000_000),
+        (-15_371_385, 10_000_000),
+        (-4_985_314, 10_000_000),
+        (-9_692_660, 10_000_000),
+        (18_760_108, 10_000_000),
+        (415_560, 10_000_000),
+        (556_434, 10_000_000),
+        (-2_040_259, 10_000_000),
+        (10_572_252, 10_000_000),
     ];
 
     // Data sizes
@@ -134,12 +134,12 @@ pub fn write_dng_16bit<P: AsRef<Path>>(
         value_or_offset: 0,
         extra_data: vec![],
     });
-    // Tag: Orientation (0x0112) = 1 (Normal)
+    // Tag: Orientation (0x0112): 6 = 90° CW, 8 = 90° CCW.
     entries.push(IfdEntry {
         tag: 0x0112,
         field_type: 3,
         count: 1,
-        value_or_offset: 1,
+        value_or_offset: orientation as u32,
         extra_data: vec![],
     });
     // Tag: SamplesPerPixel (0x0115) = 1 (Raw Bayer channel)
@@ -247,7 +247,7 @@ pub fn write_dng_16bit<P: AsRef<Path>>(
     }
     entries.push(IfdEntry {
         tag: 0xC621,
-        field_type: 5,
+        field_type: 10,
         count: 9,
         value_or_offset: 0,
         extra_data: matrix_bytes,

@@ -23,6 +23,8 @@ core is accepted; 5K/6K/8K and HDR/Dolby are later workstreams.
 | HDR on ultra-wide / tele | works |
 | 4K 4:3 video | 4096×3072 HEVC Main 30 fps, ~79 Mbps; AAC stereo 48 kHz 192 kbps; 16.9 s / 162 MB; rotation −90° |
 | 4K 16:9 video | 3840×2160 HEVC ~60 fps, ~82 Mbps; AAC stereo; 2.8 s test; preview restored |
+| Photo preview framing | preview now uses 4:3 (1440?1080) and the still/DNG use 4:3; device verification pending. |
+| DNG fallback | ColorMatrix1 now XYZ?camera with SRATIONAL; orientation 6/8; device validation pending. |
 | Video start/stop | VIDEO chip, record/stop, preview restored; repeat cycle works |
 | Lens 0.6× / 1× / 3× | camera IDs 3 / 0 / 4 |
 | Mode/lens restart | same Surface, preview resumes |

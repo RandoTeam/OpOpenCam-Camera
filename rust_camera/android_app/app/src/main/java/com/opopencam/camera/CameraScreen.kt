@@ -17,6 +17,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -54,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -111,6 +113,7 @@ fun CameraScreen() {
     var video4k16 by remember { mutableStateOf(false) }
     var recording by remember { mutableStateOf(false) }
     var videoBusy by remember { mutableStateOf(false) }
+    var switching by remember { mutableStateOf(false) }
     var recorder by remember { mutableStateOf<VideoRecorder?>(null) }
     var audioGranted by remember {
         mutableStateOf(
@@ -121,6 +124,13 @@ fun CameraScreen() {
 
     val cameraIdState = rememberUpdatedState(cameraId)
     val modeState = rememberUpdatedState(captureMode)
+
+    // Coalesce slider movement into ~50 Hz native zoom requests; never call JNI
+    // from the main thread.
+    LaunchedEffect(zoom) {
+        delay(20)
+        withContext(Dispatchers.IO) { NativeBridge.nativeSetZoom(zoom) }
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -142,7 +152,7 @@ fun CameraScreen() {
 
     val surfaceView = remember {
         SurfaceView(context).apply {
-            holder.setFixedSize(1920, 1080)
+            holder.setFixedSize(1440, 1080)
         }
     }
 
@@ -159,6 +169,7 @@ fun CameraScreen() {
             status = "Stop recording first"
             return
         }
+        if (switching) return
         cameraId = requestedCamera
         captureMode = requestedMode
         zoom = 1f
@@ -167,17 +178,28 @@ fun CameraScreen() {
             status = "Waiting for preview surface…"
             return
         }
-        NativeBridge.nativeStopPreview()
-        val ok = NativeBridge.nativeStartPreview(surface, requestedCamera, requestedMode)
-        activeMode = NativeBridge.nativeGetActiveMode()
-        describeStatus(requestedCamera, requestedMode, ok)
+        switching = true
+        status = "Switching camera…"
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                NativeBridge.nativeStopPreview()
+                NativeBridge.nativeStartPreview(surface, requestedCamera, requestedMode)
+            }
+            if (currentSurface !== surface) {
+                switching = false
+                return@launch
+            }
+            activeMode = NativeBridge.nativeGetActiveMode()
+            describeStatus(requestedCamera, requestedMode, ok)
+            switching = false
+        }
     }
 
     fun setZoomPreset(value: Float) {
-        if (videoBusy) return
+        if (videoBusy || switching) return
         cameraId = 0
         zoom = value
-        applyZoom(value) { status = it }
+        status = "Zoom %.1fx".format(value)
     }
 
     fun beginVideo() {
@@ -279,7 +301,7 @@ fun CameraScreen() {
         val callback = object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 // The buffer geometry is final only after surfaceChanged.
-                holder.setFixedSize(1920, 1080)
+                holder.setFixedSize(1440, 1080)
                 surfaceView.post { startIfSized() }
             }
 
@@ -322,7 +344,10 @@ fun CameraScreen() {
     ) {
         AndroidView(
             factory = { surfaceView },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(4f / 3f)
+                .align(Alignment.Center)
         )
 
         Row(
@@ -416,7 +441,9 @@ fun CameraScreen() {
             Slider(
                 value = zoom,
                 onValueChange = { zoom = it },
-                onValueChangeFinished = { applyZoom(zoom) { status = it } },
+                onValueChangeFinished = {
+                    status = "Zoom %.1fx".format(zoom)
+                },
                 valueRange = 0.6f..6f,
                 colors = SliderDefaults.colors(
                     thumbColor = Accent,
@@ -440,7 +467,7 @@ fun CameraScreen() {
                     .scale(shutterScale)
                     .clip(CircleShape)
                     .border(4.dp, Color.White, CircleShape)
-                    .clickable(enabled = if (videoMode) !videoBusy else !capturing) {
+                    .clickable(enabled = if (videoMode) !videoBusy else !capturing && !switching) {
                         if (videoMode) {
                             if (recording) endVideo() else beginVideo()
                             return@clickable
@@ -537,13 +564,4 @@ private fun SettingChip(label: String, selected: Boolean, onClick: () -> Unit) {
     }
 }
 
-/**
- * Applies a logical zoom ratio through the Rust engine.
- *
- * The HAL may reject ratios it cannot map to a physical camera; in that case
- * the status line explains the failure instead of leaving the UI stuck.
- */
-private fun applyZoom(ratio: Float, onStatus: (String) -> Unit) {
-    val ok = NativeBridge.nativeSetZoom(ratio)
-    onStatus(if (ok) "Zoom %.1fx".format(ratio) else "Zoom not supported by HAL")
-}
+

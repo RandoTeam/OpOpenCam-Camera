@@ -23,10 +23,8 @@ object MediaStoreSaver {
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, file.name)
             put(MediaStore.Images.Media.MIME_TYPE, mime)
-            put(
-                MediaStore.Images.Media.RELATIVE_PATH,
-                "Pictures/OpOpenCam" + if (dng) "/RAW" else "",
-            )
+            put(MediaStore.Images.Media.RELATIVE_PATH, "DCIM/OpOpenCam")
+            put(MediaStore.Images.Media.DATE_TAKEN, System.currentTimeMillis())
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 put(MediaStore.Images.Media.IS_PENDING, 1)
             }
