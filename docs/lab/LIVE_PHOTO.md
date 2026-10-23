@@ -49,6 +49,13 @@ later rewrite. An A/B with Live Photo off produced a 5,499,799-byte file:
 normal still feature, not a Live Photo feature. Details and automation lessons:
 [reports/2026-10-24-livephoto-smoke.md](reports/2026-10-24-livephoto-smoke.md).
 
+**Provenance:** the 14.2 MB sample's timestamp predates the host shutter tap by
+~15 s, so it may be a user test shot indexed during the run. Later automated
+captures with the UI showing Live Photo on produced ~2.5 MB stills without
+MotionPhoto, even after a clean restart, while the stock encoder threads were
+present. Live Photo muxing is not yet reproduced by the automation; resolve this
+before using the sample as a captured-by-runner result.
+
 ## 2. Hypotheses to test
 
 | # | Hypothesis | Evidence that would confirm | Evidence that would reject |

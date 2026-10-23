@@ -48,7 +48,7 @@ core is accepted; 5K/6K/8K and HDR/Dolby are later workstreams.
 | 10-bit P010 | Supported by HAL; video implementation planned |
 | Dolby Vision | Not portable without licence/vendor encoder; HDR10/HLG alternative |
 | AI gallery | Vendor models; clean/open alternatives only in research |
-| Stock Live Photo sample | 3.18 s clip; 1.666 s pre-roll / 1.513 s post-roll; 1728x1296 HEVC 30 fps; mono AAC 48 kHz; embedded MP4 + Ultra HDR gain map. Not 3+3. Gain map also present with Live Photo off (5.5 MB still) |
+| Stock Live Photo sample | 3.18 s clip; 1.666 s pre-roll / 1.513 s post-roll; 1728x1296 HEVC 30 fps; mono AAC 48 kHz; embedded MP4 + Ultra HDR gain map. Not 3+3. Gain map also present with Live Photo off (5.5 MB still). Automated reruns after this sample produced stills only; Live Photo muxing reproducibility pending |
 
 ## Stock camera lab (reconnaissance, 2026-10-23)
 

@@ -22,6 +22,21 @@ The first MediaStore pull was truncated at 2,515,667 bytes because the file was
 still being written. A second pull after the size stabilised produced the full
 **14,227,748-byte** file. Timing from this run is not used.
 
+### Provenance and reproducibility
+
+The 14.2 MB file's EXIF DateTime is `01:16:18`; the host shutter tap was later
+and the host/device clocks differ by roughly 15 s. The file may have been a user
+test shot that MediaStore indexed during the run, not an automated capture.
+Treat it as a verified **stock sample**, not as proof that the runner captured
+Live Photo.
+
+After that sample, automated captures with the UI showing Live Photo on
+produced ~2.5 MB stills with no MotionPhoto and no gain map (HDR off, HDR auto,
+and after a clean camera restart). The stock process still had
+`AudioEncoderThr`, `VideoEncoderThr` and `MediaCodec_loop` threads. Live Photo
+muxing is therefore **not yet reproduced** by the automation. Resolve this with
+a clean-state/reboot or stock-setting reset before claiming it.
+
 ## File structure
 
 | Part | Bytes | Details |
@@ -142,9 +157,11 @@ dedicated experiment.
 
 ## Next
 
-1. Fix the runner: marker + `find -newer`, size stability, no system Back,
+1. Resolve the Live Photo muxing state: clean restart, toggle sequence, or a
+   stock-setting reset; verify with a fresh MotionPhoto file.
+2. Fix the runner: marker + `find -newer`, size stability, no system Back,
    ScreenOffActivity recovery, keepalive.
-2. A/B Live Photo off/on and inspect the encoder before/after the shutter.
-3. Measure the gallery display with and without the gain map, in airplane mode
+3. A/B Live Photo off/on and inspect the encoder before/after the shutter.
+4. Measure the gallery display with and without the gain map, in airplane mode
    and online.
-4. Run the photo matrix with controlled state assertions and the test scene.
+5. Run the photo matrix with controlled state assertions and the test scene.
