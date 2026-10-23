@@ -25,9 +25,26 @@ Planning horizons:
 
 Status legend: ✅ verified · 🟡 partial · 🚧 planned · 🟣 research · ⛔ not portable.
 
+## Ground-truth lab (parallel, 2026-10-23)
+
+Measurements must come before claims. This track runs in parallel with the
+photo work and does not unfreeze video.
+
+- **Stock camera:** trace photo, Live Photo, gallery and 4K/8K observation.
+- **Specialist 8K camera:** same protocol when the device is available.
+- **Outputs:** behavioural model, UI inventory, file-forensics report,
+  portable vs vendor-only matrix.
+- **Clean-room:** no vendor code, binaries, LUTs or assets in the public repo.
+
+Protocols: [lab/](lab/).
+
 ## Execution order (2026-10-23)
 
 Photo is the gate. Video work stays frozen until the photo core is accepted.
+
+0. **Ground-truth lab** — run the stock-camera matrix and file forensics
+   first; the results define what the quality baseline and later features
+   must reproduce. See [lab/STOCK_CAMERA.md](lab/STOCK_CAMERA.md).
 
 1. **Photo quality baseline** — one controlled textured scene: 12 MP JPEG, HDR 3×,
    RAW 12, RAW 50 vs stock/LMC. Measure texture, clipping, shadow noise, colour and
@@ -78,6 +95,7 @@ Dolby Vision profile; measured smooth lens hand-off.
 | M19 | Night, long exposure, burst/motion, document | 🚧 | next/later |
 | M20 | 5K/6K/8K 30/60 video, HDR/Dolby, all lenses | 🟣 | later/research |
 | M21 | Open-model AI editing research | 🟣 | research |
+| M22 | Stock/specialist camera ground-truth lab | 🟣 reconnaissance done; capture runs next | now |
 
 ---
 

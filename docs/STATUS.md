@@ -49,6 +49,30 @@ core is accepted; 5K/6K/8K and HDR/Dolby are later workstreams.
 | Dolby Vision | Not portable without licence/vendor encoder; HDR10/HLG alternative |
 | AI gallery | Vendor models; clean/open alternatives only in research |
 
+## Stock camera lab (reconnaissance, 2026-10-23)
+
+The stock camera is a separate system app (`com.oplus.camera` 6.020.171), so it
+coexists with our debug app. No package switching is needed for observation.
+
+| Item | Finding |
+|---|---|
+| Cameras | logical 0 main, 1 front, 2 ultra-wide, 3 tele, 4 tele2; sensors `dodgemain`, `dodgefront`, `dodgeultrawide`, `dodgetele`, `dodgetele2` |
+| UI automation | stock UI exposes stable resource IDs; `uiautomator` works without blind taps |
+| Photo top bar | flash, global EV, Live Photo, sports, macro, submenu |
+| Right tools | soft light, filter, face beauty |
+| Bottom deck | latest thumbnail, shutter, front/rear; mode tabs Photo/Portrait/More |
+| More grid | Night, Panorama, Movies, Slow motion, Time-lapse, Long exposure, Dual-view, Sticker, XPAN, Tilt-shift, scan/AI entries; some labels clipped in the first capture |
+| Vendor config evidence | 8K **30** fps, 4K60, 1080p120, 8192x6144 stills, offline reprocess for 4K60 EIS and video SAT, TurboRAW/bracket modes |
+| Live Photo path | vendor `livephoto_coverenhancer` with RRDBNet + QNN HTP libraries; cover enhancement timing unproven |
+| Gallery | `com.coloros.gallery3d`; `PhotoEditorActivity` exposes `ACTION_EDIT`; post-processing still unexplained |
+| Camera metadata | `dumpsys media.camera` exposes static stream configs and vendor tags; `dumpsys media.metrics` exposes codec sessions |
+| Debug menus | stock debug/log activities are signature-protected; `adb shell` cannot open them |
+| Rootless limits | GPU busy/clock sysfs denied; stock userspace callstacks unavailable; NPU/DSP use must be inferred |
+
+Capture runs, Perfetto traces, Live Photo timing, gallery mutation tests and file
+forensics are the next phase. Raw vendor configs, model files and tag dumps stay
+local and are not committed. Protocol: [lab/](lab/).
+
 ## Implemented but not fully validated
 
 - HDR quality on textured static scenes and moving subjects.
@@ -81,6 +105,8 @@ core is accepted; 5K/6K/8K and HDR/Dolby are later workstreams.
 
 ## Current focus
 
+0. Ground-truth lab: stock-camera trace matrix, Live Photo/gallery forensics and
+   UI inventory; then the specialist 8K camera. See [lab/](lab/).
 1. Photo speed: measure 12 MP/RAW/HDR latency, add 3A/focus readiness and clear
    progress/saving feedback.
 2. Photo saving/gallery: MediaStore publication for JPEG/DNG/MP4 plus in-app

@@ -16,6 +16,7 @@ matches your role.
 | [BACKLOG.md](BACKLOG.md) | Prioritized task list with IDs and dependencies |
 | [AGENTS.md](AGENTS.md) | Rules for AI agents working on the project |
 | [TESTING.md](TESTING.md) | Test pyramid, device matrix and evidence requirements |
+| [lab/](lab/) | Stock-camera ground-truth lab and specialist-camera checklist |
 | [QUALITY.md](QUALITY.md) | Image-quality contract and comparison protocol |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Rust/Compose split, Camera2 session model, JNI |
 | [CAPTURE_MODES.md](CAPTURE_MODES.md) | 12/50 MP, RAW, HDR modes and fallbacks |
@@ -41,7 +42,7 @@ and Definition of Done in AGENTS.md.
 
 **Release manager:** RELEASING → CI → STATUS → CHANGELOG.
 
-**Researcher:** DATA → DEVICE_TEST_PLAN → reports/ → DECISIONS/0003.
+**Researcher:** lab/ ? DATA ? DEVICE_TEST_PLAN ? reports/ ? DECISIONS/0003.
 
 ## Source of truth
 
