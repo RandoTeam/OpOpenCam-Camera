@@ -91,34 +91,68 @@ impl YuvFrame {
     }
 }
 
+fn worker_count(height: usize) -> usize {
+    std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1)
+        .min(8)
+        .min(height.max(1))
+}
+
 /// Converts a YUV_420_888 frame to RGB8 using BT.601 limited-range coefficients.
 pub fn yuv420_to_rgb(frame: &YuvFrame) -> Result<RgbImage, HdrError> {
     if frame.width == 0 || frame.height == 0 {
         return Err(HdrError::InvalidDimensions(frame.width, frame.height));
     }
-    let mut rgb = vec![0u8; frame.width * frame.height * 3];
-    for y in 0..frame.height {
-        for x in 0..frame.width {
-            let y_val = frame.sample(&frame.y, frame.y_stride, 1, x, y) as f32;
-            let u_val =
-                frame.sample(&frame.u, frame.u_stride, frame.u_pixel_stride, x / 2, y / 2) as f32;
-            let v_val =
-                frame.sample(&frame.v, frame.v_stride, frame.v_pixel_stride, x / 2, y / 2) as f32;
+    let width = frame.width;
+    let height = frame.height;
+    let row_bytes = width * 3;
+    let threads = worker_count(height);
+    let rows_per_thread = height.div_ceil(threads);
+    let mut rgb = vec![0u8; width * height * 3];
 
-            let c = y_val - 16.0;
-            let d = u_val - 128.0;
-            let e = v_val - 128.0;
-            let r = ((298.0 * c + 409.0 * e + 128.0) / 256.0).clamp(0.0, 255.0);
-            let g = ((298.0 * c - 100.0 * d - 208.0 * e + 128.0) / 256.0).clamp(0.0, 255.0);
-            let b = ((298.0 * c + 516.0 * d + 128.0) / 256.0).clamp(0.0, 255.0);
+    std::thread::scope(|scope| {
+        for (chunk_index, chunk) in rgb.chunks_mut(rows_per_thread * row_bytes).enumerate() {
+            scope.spawn(move || {
+                let start_y = chunk_index * rows_per_thread;
+                for (local_y, row) in chunk.chunks_mut(row_bytes).enumerate() {
+                    let y = start_y + local_y;
+                    for x in 0..width {
+                        let y_val = frame.sample(&frame.y, frame.y_stride, 1, x, y) as f32;
+                        let u_val = frame.sample(
+                            &frame.u,
+                            frame.u_stride,
+                            frame.u_pixel_stride,
+                            x / 2,
+                            y / 2,
+                        ) as f32;
+                        let v_val = frame.sample(
+                            &frame.v,
+                            frame.v_stride,
+                            frame.v_pixel_stride,
+                            x / 2,
+                            y / 2,
+                        ) as f32;
 
-            let idx = (y * frame.width + x) * 3;
-            rgb[idx] = r as u8;
-            rgb[idx + 1] = g as u8;
-            rgb[idx + 2] = b as u8;
+                        let c = y_val - 16.0;
+                        let d = u_val - 128.0;
+                        let e = v_val - 128.0;
+                        let r = ((298.0 * c + 409.0 * e + 128.0) / 256.0).clamp(0.0, 255.0);
+                        let g =
+                            ((298.0 * c - 100.0 * d - 208.0 * e + 128.0) / 256.0).clamp(0.0, 255.0);
+                        let b = ((298.0 * c + 516.0 * d + 128.0) / 256.0).clamp(0.0, 255.0);
+
+                        let idx = x * 3;
+                        row[idx] = r as u8;
+                        row[idx + 1] = g as u8;
+                        row[idx + 2] = b as u8;
+                    }
+                }
+            });
         }
-    }
-    RgbImage::new(frame.width, frame.height, rgb)
+    });
+
+    RgbImage::new(width, height, rgb)
 }
 
 fn downsample_luma(image: &RgbImage, factor: usize) -> (Vec<u8>, usize, usize) {
@@ -324,68 +358,83 @@ pub fn exposure_fusion(frames: &[RgbImage]) -> Result<RgbImage, HdrError> {
     }
 
     let lumas: Vec<Vec<u8>> = frames.iter().map(RgbImage::luma).collect();
+    let row_bytes = width * 3;
+    let threads = worker_count(height);
+    let rows_per_thread = height.div_ceil(threads);
     let mut out = vec![0u8; width * height * 3];
 
-    for y in 0..height {
-        for x in 0..width {
-            let idx = y * width + x;
-            let mut weight_sum = 0.0f32;
-            let mut acc = [0.0f32; 3];
+    std::thread::scope(|scope| {
+        for (chunk_index, chunk) in out.chunks_mut(rows_per_thread * row_bytes).enumerate() {
+            let frames = &frames;
+            let lumas = &lumas;
+            scope.spawn(move || {
+                let start_y = chunk_index * rows_per_thread;
+                for (local_y, row) in chunk.chunks_mut(row_bytes).enumerate() {
+                    let y = start_y + local_y;
+                    for x in 0..width {
+                        let idx = y * width + x;
+                        let mut weight_sum = 0.0f32;
+                        let mut acc = [0.0f32; 3];
 
-            for (frame_idx, frame) in frames.iter().enumerate() {
-                let r = frame.data[idx * 3] as f32 / 255.0;
-                let g = frame.data[idx * 3 + 1] as f32 / 255.0;
-                let b = frame.data[idx * 3 + 2] as f32 / 255.0;
-                let l = lumas[frame_idx][idx] as f32 / 255.0;
+                        for (frame_idx, frame) in frames.iter().enumerate() {
+                            let r = frame.data[idx * 3] as f32 / 255.0;
+                            let g = frame.data[idx * 3 + 1] as f32 / 255.0;
+                            let b = frame.data[idx * 3 + 2] as f32 / 255.0;
+                            let l = lumas[frame_idx][idx] as f32 / 255.0;
 
-                // Local Laplacian magnitude on the luma plane.
-                let left = if x > 0 {
-                    lumas[frame_idx][idx - 1] as f32 / 255.0
-                } else {
-                    l
-                };
-                let right = if x + 1 < width {
-                    lumas[frame_idx][idx + 1] as f32 / 255.0
-                } else {
-                    l
-                };
-                let up = if y > 0 {
-                    lumas[frame_idx][idx - width] as f32 / 255.0
-                } else {
-                    l
-                };
-                let down = if y + 1 < height {
-                    lumas[frame_idx][idx + width] as f32 / 255.0
-                } else {
-                    l
-                };
-                let contrast = (4.0 * l - left - right - up - down).abs().min(1.0);
+                            // Local Laplacian magnitude on the luma plane.
+                            let left = if x > 0 {
+                                lumas[frame_idx][idx - 1] as f32 / 255.0
+                            } else {
+                                l
+                            };
+                            let right = if x + 1 < width {
+                                lumas[frame_idx][idx + 1] as f32 / 255.0
+                            } else {
+                                l
+                            };
+                            let up = if y > 0 {
+                                lumas[frame_idx][idx - width] as f32 / 255.0
+                            } else {
+                                l
+                            };
+                            let down = if y + 1 < height {
+                                lumas[frame_idx][idx + width] as f32 / 255.0
+                            } else {
+                                l
+                            };
+                            let contrast = (4.0 * l - left - right - up - down).abs().min(1.0);
 
-                let max_c = r.max(g).max(b);
-                let min_c = r.min(g).min(b);
-                let saturation = (max_c - min_c).min(1.0);
+                            let max_c = r.max(g).max(b);
+                            let min_c = r.min(g).min(b);
+                            let saturation = (max_c - min_c).min(1.0);
 
-                // Gaussian around mid-grey; sigma = 0.2.
-                let exposure = (-((l - 0.5).powi(2)) / (2.0 * 0.2 * 0.2)).exp();
+                            // Gaussian around mid-grey; sigma = 0.2.
+                            let exposure = (-((l - 0.5).powi(2)) / (2.0 * 0.2 * 0.2)).exp();
 
-                let weight = (contrast + 0.01) * (saturation + 0.01) * (exposure + 0.01);
-                weight_sum += weight;
-                acc[0] += r * weight;
-                acc[1] += g * weight;
-                acc[2] += b * weight;
-            }
+                            let weight =
+                                (contrast + 0.01) * (saturation + 0.01) * (exposure + 0.01);
+                            weight_sum += weight;
+                            acc[0] += r * weight;
+                            acc[1] += g * weight;
+                            acc[2] += b * weight;
+                        }
 
-            if weight_sum <= f32::EPSILON {
-                out[idx * 3] = frames[0].data[idx * 3];
-                out[idx * 3 + 1] = frames[0].data[idx * 3 + 1];
-                out[idx * 3 + 2] = frames[0].data[idx * 3 + 2];
-            } else {
-                for c in 0..3 {
-                    out[idx * 3 + c] = ((acc[c] / weight_sum) * 255.0).clamp(0.0, 255.0) as u8;
+                        if weight_sum <= f32::EPSILON {
+                            row[x * 3] = frames[0].data[idx * 3];
+                            row[x * 3 + 1] = frames[0].data[idx * 3 + 1];
+                            row[x * 3 + 2] = frames[0].data[idx * 3 + 2];
+                        } else {
+                            for c in 0..3 {
+                                row[x * 3 + c] =
+                                    ((acc[c] / weight_sum) * 255.0).clamp(0.0, 255.0) as u8;
+                            }
+                        }
+                    }
                 }
-            }
+            });
         }
-    }
+    });
 
     RgbImage::new(width, height, out)
 }
