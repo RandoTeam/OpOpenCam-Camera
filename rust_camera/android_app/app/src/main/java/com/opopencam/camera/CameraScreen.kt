@@ -165,6 +165,10 @@ fun CameraScreen() {
     }
 
     fun restart(requestedCamera: Int, requestedMode: Int) {
+        if (capturing) {
+            status = "Wait for the current photo"
+            return
+        }
         if (recording || videoBusy) {
             status = "Stop recording first"
             return
@@ -196,14 +200,14 @@ fun CameraScreen() {
     }
 
     fun setZoomPreset(value: Float) {
-        if (videoBusy || switching) return
+        if (capturing || videoBusy || switching) return
         cameraId = 0
         zoom = value
         status = "Zoom %.1fx".format(value)
     }
 
     fun beginVideo() {
-        if (recording || videoBusy) return
+        if (capturing || recording || videoBusy) return
         if (!audioGranted) {
             audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             return
@@ -474,7 +478,13 @@ fun CameraScreen() {
                         }
                         if (capturing) return@clickable
                         capturing = true
-                        if (captureMode == MODE_HDR3) status = "Processing HDR…"
+                        status = if (captureMode == MODE_HDR3) {
+                            "Processing HDR…"
+                        } else if (captureMode == MODE_RAW50) {
+                            "Saving RAW 50…"
+                        } else {
+                            "Capturing…"
+                        }
                         scope.launch {
                             // nativeCapturePhoto blocks until the buffer is written;
                             // HDR can take several seconds.
@@ -563,5 +573,3 @@ private fun SettingChip(label: String, selected: Boolean, onClick: () -> Unit) {
         )
     }
 }
-
-
