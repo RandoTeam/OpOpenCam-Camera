@@ -182,6 +182,15 @@ A task is done when all are true:
 
 ## 5. Camera-specific rules
 
+- **Photo core comes first.** Do not expand video, 5K/6K/8K or Live Photo until
+  photo capture speed, MediaStore saving, quality and smooth zoom are accepted.
+- **Test every photo feature at all relevant lenses/zoom stops**, not only 1×:
+  0.6/1/2/3/6, rear and front where applicable.
+- **Use `SelfTestActivity` for the matrix** instead of repeated manual taps. Read
+  `files/selftest/report.jsonl`; release builds must refuse to start it.
+- **Do not dismiss a mode after one API path.** If JPEG fails, test RAW/vendor
+  variants before closing; document exactly what was tried.
+
 - **50 MP JPEG is unavailable** on this device; the HAL returns 1920×1440. Never
   “fix” it by renaming or resizing. Use RAW 50 or document the failure.
 - **RAW 50 requires `com.oneplus.camera`** and vendor session parameters. Do not

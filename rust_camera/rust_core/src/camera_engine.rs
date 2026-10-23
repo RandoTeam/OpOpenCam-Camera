@@ -28,7 +28,7 @@ use crate::sensors::{
     VENDOR_TAG_ENABLE_IDEAL_RAW, VENDOR_TAG_OPLUS_PACKAGE_NAME, VENDOR_TAG_ULTRA_RESOLUTION_MODE,
 };
 
-const PREVIEW_WIDTH: i32 = 1920;
+const PREVIEW_WIDTH: i32 = 1440;
 const PREVIEW_HEIGHT: i32 = 1080;
 const CAPTURE_TIMEOUT: Duration = Duration::from_secs(15);
 
@@ -50,8 +50,9 @@ const AE_MODE_ON: u8 = 1;
 const AF_MODE_CONTINUOUS_PICTURE: u8 = 4;
 const AWB_MODE_AUTO: u8 = 1;
 const JPEG_QUALITY: u8 = 95;
-/// Portrait rear shooting. The HAL writes this into EXIF for JPEG outputs.
-const JPEG_ORIENTATION: i32 = 90;
+/// Rear sensor is 90°; front sensor is 270° in this portrait-locked app.
+const JPEG_ORIENTATION_REAR: i32 = 90;
+const JPEG_ORIENTATION_FRONT: i32 = 270;
 const RAW_BLACK_LEVEL: u32 = 64;
 const RAW_WHITE_LEVEL_10BIT: u32 = 1023;
 
@@ -196,6 +197,7 @@ pub struct CameraEngine {
     capture_mode: CaptureMode,
     still_width: i32,
     still_height: i32,
+    zoom_ratio: f32,
     video_window: *mut sys::ANativeWindow,
     video_output: *mut sys::ACaptureSessionOutput,
     video_target: *mut sys::ACameraOutputTarget,
@@ -227,7 +229,13 @@ impl CameraEngine {
             cv: Condvar::new(),
         });
 
-        let (still_width, still_height) = mode.still_size();
+        // The front sensor's native binned still is 3280x2464; requesting a
+        // 4096x3072 JPEG fails. Keep the rear modes untouched.
+        let (still_width, still_height) = if camera_id == "1" && mode == CaptureMode::Jpeg12 {
+            (3280, 2464)
+        } else {
+            mode.still_size()
+        };
         let mut engine = Self {
             manager: ptr::null_mut(),
             device: ptr::null_mut(),
@@ -245,6 +253,7 @@ impl CameraEngine {
             capture_mode: mode,
             still_width,
             still_height,
+            zoom_ratio: 1.0,
             video_window: ptr::null_mut(),
             video_output: ptr::null_mut(),
             video_target: ptr::null_mut(),
@@ -300,6 +309,7 @@ impl CameraEngine {
             capture_mode: CaptureMode::Jpeg12,
             still_width: 0,
             still_height: 0,
+            zoom_ratio: 1.0,
             video_window,
             video_output: ptr::null_mut(),
             video_target: ptr::null_mut(),
@@ -436,7 +446,7 @@ impl CameraEngine {
         // 50 MP needs the OPlus/Qualcomm ultra-resolution session parameters.
         // The standard stream list only advertises 4096x3072 JPEG; without the
         // vendor mode the HAL silently returns a 1920x1440 JPEG.
-        let session_params = if self.capture_mode.is_50mp() {
+        let session_params = if self.capture_mode.is_50mp() || self.capture_mode.is_25mp() {
             let mut params: *mut sys::ACaptureRequest = ptr::null_mut();
             let create = sys::ACameraDevice_createCaptureRequest(
                 self.device,
@@ -453,14 +463,19 @@ impl CameraEngine {
                 );
                 let one_u8: u8 = 1;
                 sys::ACaptureRequest_setEntry_u8(params, VENDOR_TAG_ENABLE_IDEAL_RAW, 1, &one_u8);
-                let package = b"com.opopencam.camera\0";
+                // The installed applicationId and Chi whitelist name. The JNI
+                // class package is separate and must not be used here.
+                let package = b"com.oneplus.camera\0";
                 sys::ACaptureRequest_setEntry_u8(
                     params,
                     VENDOR_TAG_OPLUS_PACKAGE_NAME,
                     package.len() as u32,
                     package.as_ptr(),
                 );
-                info!("Camera2 NDK: enabling 50 MP vendor session parameters");
+                info!(
+                    "Camera2 NDK: enabling vendor resolution parameters for {}",
+                    self.capture_mode.label()
+                );
             }
             params
         } else {
@@ -705,10 +720,14 @@ impl CameraEngine {
         sys::ACaptureRequest_setEntry_u8(request, TAG_AWB_MODE, 1, &awb);
     }
 
-    unsafe fn apply_jpeg_entries(request: *mut sys::ACaptureRequest) {
+    unsafe fn apply_jpeg_entries(&self, request: *mut sys::ACaptureRequest) {
         let quality = JPEG_QUALITY;
         sys::ACaptureRequest_setEntry_u8(request, TAG_JPEG_QUALITY, 1, &quality);
-        let orientation = JPEG_ORIENTATION;
+        let orientation = if self.camera_id == "1" {
+            JPEG_ORIENTATION_FRONT
+        } else {
+            JPEG_ORIENTATION_REAR
+        };
         sys::ACaptureRequest_setEntry_i32(request, TAG_JPEG_ORIENTATION, 1, &orientation);
     }
 
@@ -734,6 +753,8 @@ impl CameraEngine {
             ));
         }
         Self::apply_common_entries(request);
+        let zoom = self.zoom_ratio;
+        sys::ACaptureRequest_setEntry_float(request, TAG_ZOOM_RATIO, 1, &zoom);
         Ok(request)
     }
 
@@ -806,18 +827,26 @@ impl CameraEngine {
         if !self.running || self.session.is_null() || self.device.is_null() {
             return Err("camera session is not running".into());
         }
-        match self.capture_mode {
+        let started = Instant::now();
+        let result = match self.capture_mode {
             CaptureMode::Jpeg12 | CaptureMode::Jpeg50 => self.capture_jpeg(path),
-            CaptureMode::Raw12 | CaptureMode::Raw50 => self.capture_raw(path),
+            CaptureMode::Raw12 | CaptureMode::Raw25 | CaptureMode::Raw50 => self.capture_raw(path),
             CaptureMode::Hdr3 => self.capture_hdr(path),
-        }
+        };
+        info!(
+            "Camera2 NDK: capture {} finished in {:?} (ok={})",
+            self.capture_mode.label(),
+            started.elapsed(),
+            result.is_ok()
+        );
+        result
     }
 
     fn capture_jpeg(&mut self, path: &str) -> Result<(), String> {
         self.clear_still_frames();
         let request = unsafe { self.create_still_request()? };
         unsafe {
-            Self::apply_jpeg_entries(request);
+            self.apply_jpeg_entries(request);
             let mut requests = [request];
             self.submit_requests(&mut requests)?;
         }
@@ -879,6 +908,7 @@ impl CameraEngine {
                 pixels[y * width + x] = u16::from_le_bytes([plane[i], plane[i + 1]]);
             }
         }
+        let orientation = if self.camera_id == "1" { 8 } else { 6 };
         write_dng_16bit(
             path,
             width as u32,
@@ -887,6 +917,7 @@ impl CameraEngine {
             "OnePlus 13",
             RAW_BLACK_LEVEL,
             RAW_WHITE_LEVEL_10BIT,
+            orientation,
         )
         .map_err(|e| format!("write DNG {}: {}", path, e))?;
         info!("Camera2 NDK: saved DNG {}x{} to {}", width, height, path);
@@ -973,6 +1004,7 @@ impl CameraEngine {
                 ));
             }
         }
+        self.zoom_ratio = ratio;
         info!("Camera2 NDK: zoom ratio set to {:.2}", ratio);
         Ok(())
     }

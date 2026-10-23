@@ -11,6 +11,32 @@ All notable changes to the OpOpenCam Rust camera are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- MediaStore publication for captures (`DCIM/OpOpenCam`, `Movies/OpOpenCam`);
+  app-specific copy is kept; JPEG URI verified with `is_pending=0`.
+- Still captures now apply the current zoom ratio, not only preview zoom.
+- Front camera JPEG fixed to its native 3280×2464; orientation 8.
+- Debug `SelfTestActivity` matrix runner (JSONL), covering JPEG zooms, UW/tele/front,
+  RAW12/RAW25/RAW50, HDR, MediaStore and video/codec probes.
+- RAW25 probe: 5888×4416 session rejected (`-10009`) on logical and physical main;
+  no DNG written. Alternate vendor path remains research.
+- Photo/Video separated at the top of the capture deck; 50 MP JPEG chip removed.
+- Preview switched to 4:3 (1440×1080) so framing matches the 4:3 still.
+- DNG `ColorMatrix1` fixed to XYZ→camera with SRATIONAL; TIFF orientation 6/8.
+- Blocking preview restart/zoom moved off the main thread; zoom coalesced at ~50 Hz.
+- Capture timing log (`Camera2 NDK: capture ... finished in ...`).
+- Photo-first roadmap: saving/gallery, speed, smooth zoom, 25 MP RAW probe and UI
+  redesign are P0; video is frozen.
+
+### Validation pending
+
+- MediaStore publication and logical 0.6–6× still zoom require a reconnected device.
+- 25 MP RAW (RAW_SENSOR 5888×4416) probe not yet run.
+- Photo quality baseline and latency numbers not yet measured.
+
 ## [0.4.0-alpha.1] ? 2026-10-22
 
 ### Added

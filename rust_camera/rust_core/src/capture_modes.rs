@@ -17,15 +17,18 @@ pub enum CaptureMode {
     Raw50 = 3,
     /// Three YUV frames at -2/0/+2 EV, merged and encoded as JPEG.
     Hdr3 = 4,
+    /// Hidden probe: 5888x4416 RAW_SENSOR via the vendor resolution session.
+    Raw25 = 5,
 }
 
 impl CaptureMode {
-    pub const ALL: [CaptureMode; 5] = [
+    pub const ALL: [CaptureMode; 6] = [
         CaptureMode::Jpeg12,
         CaptureMode::Jpeg50,
         CaptureMode::Raw12,
         CaptureMode::Raw50,
         CaptureMode::Hdr3,
+        CaptureMode::Raw25,
     ];
 
     /// Maps the integer passed from Kotlin. Unknown values fall back to 12 MP JPEG.
@@ -35,6 +38,7 @@ impl CaptureMode {
             2 => Self::Raw12,
             3 => Self::Raw50,
             4 => Self::Hdr3,
+            5 => Self::Raw25,
             _ => Self::Jpeg12,
         }
     }
@@ -50,12 +54,14 @@ impl CaptureMode {
             Self::Raw12 => "RAW 12",
             Self::Raw50 => "RAW 50",
             Self::Hdr3 => "HDR 3×",
+            Self::Raw25 => "RAW 25 probe",
         }
     }
 
     /// Output size of the still reader.
     pub fn still_size(self) -> (i32, i32) {
         match self {
+            Self::Raw25 => (5888, 4416),
             Self::Jpeg50 | Self::Raw50 => (8192, 6144),
             _ => (4096, 3072),
         }
@@ -67,7 +73,7 @@ impl CaptureMode {
     pub fn image_format(self) -> i32 {
         match self {
             Self::Jpeg12 | Self::Jpeg50 => 256,
-            Self::Raw12 | Self::Raw50 => 32,
+            Self::Raw12 | Self::Raw25 | Self::Raw50 => 32,
             Self::Hdr3 => 35,
         }
     }
@@ -77,7 +83,7 @@ impl CaptureMode {
     }
 
     pub fn is_raw(self) -> bool {
-        matches!(self, Self::Raw12 | Self::Raw50)
+        matches!(self, Self::Raw12 | Self::Raw25 | Self::Raw50)
     }
 
     pub fn is_hdr(self) -> bool {
@@ -86,6 +92,10 @@ impl CaptureMode {
 
     pub fn is_50mp(self) -> bool {
         matches!(self, Self::Jpeg50 | Self::Raw50)
+    }
+
+    pub fn is_25mp(self) -> bool {
+        matches!(self, Self::Raw25)
     }
 
     /// File extension for the Compose layer.
@@ -139,6 +149,8 @@ mod tests {
     fn sizes_and_formats_match_the_hal_baseline() {
         assert_eq!(CaptureMode::Jpeg12.still_size(), (4096, 3072));
         assert_eq!(CaptureMode::Jpeg50.still_size(), (8192, 6144));
+        assert_eq!(CaptureMode::Raw25.still_size(), (5888, 4416));
+        assert_eq!(CaptureMode::Raw25.image_format(), 32);
         assert_eq!(CaptureMode::Raw12.image_format(), 32);
         assert_eq!(CaptureMode::Hdr3.image_format(), 35);
         assert_eq!(CaptureMode::Jpeg50.image_format(), 256);

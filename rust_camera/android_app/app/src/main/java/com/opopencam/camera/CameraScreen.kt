@@ -17,6 +17,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -54,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -111,6 +113,7 @@ fun CameraScreen() {
     var video4k16 by remember { mutableStateOf(false) }
     var recording by remember { mutableStateOf(false) }
     var videoBusy by remember { mutableStateOf(false) }
+    var switching by remember { mutableStateOf(false) }
     var recorder by remember { mutableStateOf<VideoRecorder?>(null) }
     var audioGranted by remember {
         mutableStateOf(
@@ -121,6 +124,13 @@ fun CameraScreen() {
 
     val cameraIdState = rememberUpdatedState(cameraId)
     val modeState = rememberUpdatedState(captureMode)
+
+    // Coalesce slider movement into ~50 Hz native zoom requests; never call JNI
+    // from the main thread.
+    LaunchedEffect(zoom) {
+        delay(20)
+        withContext(Dispatchers.IO) { NativeBridge.nativeSetZoom(zoom) }
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -142,7 +152,7 @@ fun CameraScreen() {
 
     val surfaceView = remember {
         SurfaceView(context).apply {
-            holder.setFixedSize(1920, 1080)
+            holder.setFixedSize(1440, 1080)
         }
     }
 
@@ -155,10 +165,15 @@ fun CameraScreen() {
     }
 
     fun restart(requestedCamera: Int, requestedMode: Int) {
+        if (capturing) {
+            status = "Wait for the current photo"
+            return
+        }
         if (recording || videoBusy) {
             status = "Stop recording first"
             return
         }
+        if (switching) return
         cameraId = requestedCamera
         captureMode = requestedMode
         zoom = 1f
@@ -167,14 +182,32 @@ fun CameraScreen() {
             status = "Waiting for preview surface…"
             return
         }
-        NativeBridge.nativeStopPreview()
-        val ok = NativeBridge.nativeStartPreview(surface, requestedCamera, requestedMode)
-        activeMode = NativeBridge.nativeGetActiveMode()
-        describeStatus(requestedCamera, requestedMode, ok)
+        switching = true
+        status = "Switching camera…"
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                NativeBridge.nativeStopPreview()
+                NativeBridge.nativeStartPreview(surface, requestedCamera, requestedMode)
+            }
+            if (currentSurface !== surface) {
+                switching = false
+                return@launch
+            }
+            activeMode = NativeBridge.nativeGetActiveMode()
+            describeStatus(requestedCamera, requestedMode, ok)
+            switching = false
+        }
+    }
+
+    fun setZoomPreset(value: Float) {
+        if (capturing || videoBusy || switching) return
+        cameraId = 0
+        zoom = value
+        status = "Zoom %.1fx".format(value)
     }
 
     fun beginVideo() {
-        if (recording || videoBusy) return
+        if (capturing || recording || videoBusy) return
         if (!audioGranted) {
             audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             return
@@ -233,9 +266,16 @@ fun CameraScreen() {
                     NativeBridge.nativeStartPreview(surface, cameraId, captureMode)
                 }
             }
+            val savedFile = result.getOrNull()
+            val published = if (savedFile != null) {
+                withContext(Dispatchers.IO) { MediaStoreSaver.publishVideo(context, savedFile) }
+            } else {
+                null
+            }
             result.onSuccess {
-                status = "Saved ${it.name}"
-                Toast.makeText(context, "Saved ${it.name}", Toast.LENGTH_SHORT).show()
+                val suffix = if (published != null) " · Gallery" else " · not indexed"
+                status = "Saved ${it.name}$suffix"
+                Toast.makeText(context, "Saved ${it.name}$suffix", Toast.LENGTH_SHORT).show()
             }.onFailure {
                 status = "Video stop failed: ${it.message ?: it.javaClass.simpleName}"
             }
@@ -265,7 +305,7 @@ fun CameraScreen() {
         val callback = object : SurfaceHolder.Callback {
             override fun surfaceCreated(holder: SurfaceHolder) {
                 // The buffer geometry is final only after surfaceChanged.
-                holder.setFixedSize(1920, 1080)
+                holder.setFixedSize(1440, 1080)
                 surfaceView.post { startIfSized() }
             }
 
@@ -308,7 +348,10 @@ fun CameraScreen() {
     ) {
         AndroidView(
             factory = { surfaceView },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(4f / 3f)
+                .align(Alignment.Center)
         )
 
         Row(
@@ -346,25 +389,34 @@ fun CameraScreen() {
                 .padding(bottom = 34.dp, top = 36.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                SettingChip("VIDEO", videoMode) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SettingChip("PHOTO", !videoMode) {
                     if (!recording && !videoBusy) {
-                        videoMode = !videoMode
-                        status = if (videoMode) "Video 4K 4:3 · 30 fps" else "Photo mode"
+                        videoMode = false
+                        status = "Photo mode"
                     }
                 }
-                SettingChip("12", captureMode == MODE_JPEG12) { restart(cameraId, MODE_JPEG12) }
-                SettingChip("50", captureMode == MODE_JPEG50) { restart(cameraId, MODE_JPEG50) }
-                SettingChip("RAW", captureMode == MODE_RAW12) { restart(cameraId, MODE_RAW12) }
-                SettingChip("R50", captureMode == MODE_RAW50) { restart(cameraId, MODE_RAW50) }
-                SettingChip("HDR", captureMode == MODE_HDR3) { restart(cameraId, MODE_HDR3) }
+                SettingChip("VIDEO", videoMode) {
+                    if (!recording && !videoBusy) {
+                        videoMode = true
+                        status = if (video4k16) "Video 4K 16:9 · 60 fps" else "Video 4K 4:3 · 30 fps"
+                    }
+                }
             }
 
-            if (videoMode) {
-                Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(8.dp))
+
+            if (!videoMode) {
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SettingChip("12", captureMode == MODE_JPEG12) { restart(cameraId, MODE_JPEG12) }
+                    SettingChip("RAW", captureMode == MODE_RAW12) { restart(cameraId, MODE_RAW12) }
+                    SettingChip("R50", captureMode == MODE_RAW50) { restart(cameraId, MODE_RAW50) }
+                    SettingChip("HDR", captureMode == MODE_HDR3) { restart(cameraId, MODE_HDR3) }
+                }
+            } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     SettingChip(
                         if (video4k16) "4K 16:9 · 60" else "4K 4:3 · 30",
@@ -381,9 +433,21 @@ fun CameraScreen() {
             Spacer(Modifier.height(10.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SettingChip("0.6", cameraId == 3) { restart(3, captureMode) }
-                SettingChip("1x", cameraId == 0) { restart(0, captureMode) }
-                SettingChip("3x", cameraId == 4) { restart(4, captureMode) }
+                SettingChip("0.6", zoom == 0.6f) { setZoomPreset(0.6f) }
+                SettingChip("1x", zoom == 1f) { setZoomPreset(1f) }
+                SettingChip("2x", zoom == 2f) { setZoomPreset(2f) }
+                SettingChip("3x", zoom == 3f) { setZoomPreset(3f) }
+                SettingChip("6x", zoom == 6f) { setZoomPreset(6f) }
+                SettingChip("FRONT", cameraId == 1) {
+                    if (!recording && !videoBusy && !capturing && !switching) {
+                        restart(1, MODE_JPEG12)
+                    }
+                }
+                SettingChip("REAR", cameraId == 0) {
+                    if (!recording && !videoBusy && !capturing && !switching) {
+                        restart(0, captureMode)
+                    }
+                }
             }
 
             Spacer(Modifier.height(10.dp))
@@ -391,8 +455,10 @@ fun CameraScreen() {
             Slider(
                 value = zoom,
                 onValueChange = { zoom = it },
-                onValueChangeFinished = { applyZoom(zoom) { status = it } },
-                valueRange = if (cameraId == 0) 0.6f..3f else 1f..3f,
+                onValueChangeFinished = {
+                    status = "Zoom %.1fx".format(zoom)
+                },
+                valueRange = 0.6f..6f,
                 colors = SliderDefaults.colors(
                     thumbColor = Accent,
                     activeTrackColor = Accent,
@@ -415,14 +481,20 @@ fun CameraScreen() {
                     .scale(shutterScale)
                     .clip(CircleShape)
                     .border(4.dp, Color.White, CircleShape)
-                    .clickable(enabled = if (videoMode) !videoBusy else !capturing) {
+                    .clickable(enabled = if (videoMode) !videoBusy else !capturing && !switching) {
                         if (videoMode) {
                             if (recording) endVideo() else beginVideo()
                             return@clickable
                         }
                         if (capturing) return@clickable
                         capturing = true
-                        if (captureMode == MODE_HDR3) status = "Processing HDR…"
+                        status = if (captureMode == MODE_HDR3) {
+                            "Processing HDR…"
+                        } else if (captureMode == MODE_RAW50) {
+                            "Saving RAW 50…"
+                        } else {
+                            "Capturing…"
+                        }
                         scope.launch {
                             // nativeCapturePhoto blocks until the buffer is written;
                             // HDR can take several seconds.
@@ -440,7 +512,14 @@ fun CameraScreen() {
                                 val file = File(dir, "IMG_${System.currentTimeMillis()}.$extension")
                                 val ok = NativeBridge.nativeCapturePhoto(file.absolutePath)
                                 when {
-                                    ok -> "Saved ${file.name}"
+                                    ok -> {
+                                        val uri = MediaStoreSaver.publishImage(context, file)
+                                        if (uri != null) {
+                                            "Saved ${file.name} · Gallery"
+                                        } else {
+                                            "Saved ${file.name} · not indexed"
+                                        }
+                                    }
                                     effectiveMode == MODE_JPEG50 -> "50 MP JPEG unavailable — use R50"
                                     else -> "Capture failed - see logcat"
                                 }
@@ -503,15 +582,4 @@ private fun SettingChip(label: String, selected: Boolean, onClick: () -> Unit) {
             fontSize = 12.sp
         )
     }
-}
-
-/**
- * Applies a logical zoom ratio through the Rust engine.
- *
- * The HAL may reject ratios it cannot map to a physical camera; in that case
- * the status line explains the failure instead of leaving the UI stuck.
- */
-private fun applyZoom(ratio: Float, onStatus: (String) -> Unit) {
-    val ok = NativeBridge.nativeSetZoom(ratio)
-    onStatus(if (ok) "Zoom %.1fx".format(ratio) else "Zoom not supported by HAL")
 }

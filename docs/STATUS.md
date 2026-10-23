@@ -6,6 +6,10 @@
 **Package:** `com.oneplus.camera` (JNI class package `com.opopencam.camera`)
 **Public build:** original code only; no vendor binaries, LUTs or calibration assets.
 
+**Current priority:** photo core first — capture speed, quality, saving/gallery, smooth
+zoom and lens hand-off. Video remains an experimental 4K feature until the photo
+core is accepted; 5K/6K/8K and HDR/Dolby are later workstreams.
+
 ## Verified on device
 
 | Feature | Evidence |
@@ -19,6 +23,12 @@
 | HDR on ultra-wide / tele | works |
 | 4K 4:3 video | 4096×3072 HEVC Main 30 fps, ~79 Mbps; AAC stereo 48 kHz 192 kbps; 16.9 s / 162 MB; rotation −90° |
 | 4K 16:9 video | 3840×2160 HEVC ~60 fps, ~82 Mbps; AAC stereo; 2.8 s test; preview restored |
+| Photo preview framing | preview 1440?1080 4:3 active; stills remain 4096?3072 |
+| DNG fallback | verified tags: 4096?3072/8192?6144, orientation 6, ColorMatrix1 SRATIONAL |
+| Front JPEG | 3280?2464, orientation 8 |
+| MediaStore | `content://media/external/images/media/303572`, `DCIM/OpOpenCam/`, `is_pending=0` |
+| Logical zoom | 0.6/1/2/3/6 JPEG captures; 0.6 ~1.1 s, 1? ~0.6 s, 3? ~1.2 s, 6? ~1.1 s |
+| RAW speed | RAW12 0.35?0.51 s; RAW50 0.66 s; HDR 3.4 s |
 | Video start/stop | VIDEO chip, record/stop, preview restored; repeat cycle works |
 | Lens 0.6× / 1× / 3× | camera IDs 3 / 0 / 4 |
 | Mode/lens restart | same Surface, preview resumes |
@@ -53,10 +63,13 @@
 | 50 MP JPEG unavailable | HAL returns 1920×1440 even for an 8192×6144 reader; engine rejects it via JPEG SOF check. Use RAW 50. |
 | DNG color uncalibrated | Generic sRGB matrix; user-supplied ColorMatrix/black/white levels needed. |
 | HDR alignment | Translation-only NCC; rotation/parallax/moving subjects can ghost. |
-| 25 MP unavailable | Session accepts a 5888×4416 reader, but the HAL returns 1920×1440 JPEG; rejected by SOF guard. |
+| 25 MP JPEG closed | Session accepts a 5888×4416 JPEG reader, but the HAL returns 1920×1440; rejected by SOF guard. |
+| RAW 25 probe rejected | 5888×4416 RAW_SENSOR session fails with `createCaptureSession -10009` on logical and physical main; no file. Alternate vendor/pixel-mode paths still pending. |
+| 8K/6K video not exposed | 7680×4320 and 6016×4512 video sessions rejected; camera stream configs cap at 4096×3072. Dolby encoder exists (`c2.qti.dv.encoder`); HDR/Dolby path still unproven. |
+| Photo quality baseline pending | Same-scene comparison against stock/LMC and HDR tone/colour tuning not yet done. |
 | No Live Photo yet | Motion Photo container exists; video/audio ring buffer not implemented. |
 | 4K 4:3 video verified | 4096×3072 HEVC 30 fps + AAC stereo; A/V tail can be ~0.2–0.5 s longer than video, sync trimming is next. |
-| Video modes not yet | 1080p 120, 720p 60, front video, 10-bit/HDR, EIS, MediaStore. |
+| Video modes not yet | 1080p 120, 720p 60, 10-bit/HDR, EIS; 8K/6K sessions rejected. |
 | No Pro/portrait/macro yet | Manual controls, overlays, bokeh and focus stacking are backlogged. |
 | 4K120 / front 4K unavailable | HAL stream limits; vendor-only upscale/freezes. |
 | Dolby Vision unavailable | Requires Dolby licence and vendor encoder; HDR10/HLG planned. |
@@ -67,12 +80,19 @@
 
 ## Current focus
 
-1. DNG calibration workflow (user-supplied profiles).
-2. HDR quality comparison and tuning.
-3. A/V tail trimming; 1080p 120; 10-minute thermal test.
-4. Live Photo 6 s / stereo audio.
-5. Pro mode and gallery foundation.
-6. 1080p 120 / 720p 60 / front video.
+1. Photo speed: measure 12 MP/RAW/HDR latency, add 3A/focus readiness and clear
+   progress/saving feedback.
+2. Photo saving/gallery: MediaStore publication for JPEG/DNG/MP4 plus in-app
+   latest thumbnail/gallery.
+3. Photo quality baseline: same-scene 12 MP vs HDR vs RAW vs stock/LMC; texture,
+   noise, DR and colour.
+4. Smooth zoom/lens hand-off: logical camera 0.6–6×, zoom applied to still
+   requests, tests at every lens stop.
+5. 25 MP RAW probe (RAW_SENSOR 5888×4416 via vendor mode); JPEG 25 MP is closed.
+6. Photo-first UI: separate Photo and Video segments; remove still controls from
+   Video.
+7. Live Photo 3+3 after the photo core.
+8. Video matrix (4K/5K/6K/8K, 30/60, HDR/Dolby) only after photo acceptance.
 
 Full feature surface and priorities: [FEATURE_PARITY.md](FEATURE_PARITY.md).
 

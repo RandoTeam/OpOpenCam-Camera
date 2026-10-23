@@ -12,6 +12,14 @@
 
 Verified: RAW 12 ≈ 25 MB; RAW 50 ≈ 96 MB, 8192×6144, 16-bit, DNG 1.4.
 
+## DNG fallback correction
+
+The public fallback now writes the **inverse sRGB matrix (XYZ → camera)** as
+`ColorMatrix1` with the DNG-required **SRATIONAL** type, not the previous
+camera→XYZ matrix. It also writes the TIFF orientation (6 for rear, 8 for front)
+instead of always `1`. This is still a generic fallback, not a per-sensor
+calibration, but it removes a mathematically wrong matrix and sideways RAW.
+
 ## Public-build colour policy
 
 The public repository does **not** contain vendor ColorMatrix, LUT, EEPROM or

@@ -128,6 +128,24 @@ For each camera test, record:
 - “Implemented” without device evidence is “validation pending”.
 - If no device is connected, live tests are skipped; static tests must still pass.
 
+## Automated matrix runner
+
+`SelfTestActivity` is debug-only and runs without UI taps:
+
+```bash
+adb shell am start -n com.oneplus.camera/com.opopencam.camera.SelfTestActivity
+adb shell cat /sdcard/Android/data/com.oneplus.camera/files/selftest/report.jsonl
+```
+
+It covers JPEG at 0.6/1/2/3/6, UW/tele/front, RAW12/RAW25/RAW50, HDR, MediaStore
+publication, DNG tags and 5K/6K/8K/Dolby codec/session probes. It writes one JSON
+object per case, so progress can be read while it runs. Release builds refuse to
+start it.
+
+Latest result: JPEG 12 MP ~0.6–1.2 s; RAW12 ~0.35–0.5 s; RAW50 ~0.5–0.66 s;
+HDR ~3.4 s; front 3280×2464; RAW25 and 8K/6K sessions rejected; Dolby encoder
+component present but unproven.
+
 ## Detailed procedure
 
 See [DEVICE_TEST_PLAN.md](DEVICE_TEST_PLAN.md) for the step-by-step live plan and

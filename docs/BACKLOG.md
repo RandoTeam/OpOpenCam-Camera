@@ -3,10 +3,19 @@
 Task-level view of [ROADMAP.md](ROADMAP.md) and [FEATURE_PARITY.md](FEATURE_PARITY.md).
 IDs are stable; use them in branches (`feat/video-101-...`). One task per PR.
 
-## P0 — now
+## P0 — now (photo core first)
 
 | ID | Task | Depends on | Acceptance |
 |---|---|---|---|
+| PHOTO-101 | Capture latency instrumentation | — | 12 MP/RAW/HDR timings in logcat; no UI block |
+| PHOTO-102 | MediaStore publication + latest thumbnail | — | JPEG/DNG/MP4 visible in system gallery; in-app thumb |
+| PHOTO-103 | Apply zoom to still requests | — | 0.6/1/2/3/6 captures match requested FOV |
+| PHOTO-104 | Smooth logical zoom + lens hand-off | PHOTO-103 | Slider continuous; no session restart flash |
+| PHOTO-105 | Photo quality baseline | — | Same-scene 12 MP/HDR/RAW vs stock/LMC |
+| PHOTO-106 | Photo-first UI | — | Photo/Video separate; Photo controls only in Photo |
+| PHOTO-107 | 25 MP RAW probe | ? | **Tested:** session rejected `-10009` on logical/main; alternate vendor path pending |
+| PHOTO-108 | 3A/focus readiness before capture | PHOTO-101 | Sharper, repeatable stills; latency recorded |
+| STILL-102 | 25 MP RAW_SENSOR probe | ? | **Session rejected `-10009`**; try vendor/pixel-mode alternatives before closing |
 | DNG-101 | User-supplied calibration file format | — | Loads ColorMatrix1/2 + black/white; documented |
 | DNG-102 | Load calibration in the DNG writer | DNG-101 | 12/50 MP DNG uses supplied profile |
 | DNG-103 | Validate RAW 12/50 in Lightroom/Photoshop | DNG-102 | Correct colour/levels; no personal screenshots |
@@ -21,13 +30,16 @@ IDs are stable; use them in branches (`feat/video-101-...`). One task per PR.
 
 ## P1 — next
 
+> Photo core (P0) must be accepted before new video work. Video rows below are
+> existing experiments/next-step candidates, not the current priority.
+
 ### Video and audio
 
 | ID | Task | Depends on | Acceptance |
 |---|---|---|---|
 | VIDEO-101 | 4K 4:3 4096×3072 @30 | — | **Verified:** HEVC Main 4096×3072 30 fps, ~79 Mbps, playable |
 | VIDEO-102 | 4K 16:9 3840×2160 @60 | VIDEO-101 | **Verified:** HEVC Main ~60 fps, ~82 Mbps |
-| VIDEO-103 | Stereo AAC + mux | — | **Partial:** 48 kHz stereo 192 kbps verified; audio tail ~0.2–0.5 s needs trimming |
+| VIDEO-103 | Stereo AAC + mux | — | **Partial:** 48 kHz stereo 192 kbps verified; audio tail ~0.15–0.2 s needs trimming |
 | VIDEO-104 | EIS/OIS + crop/FOV measurement | VIDEO-101 | Stable handheld; documented FOV |
 | VIDEO-105 | Bitrate, lock lens, lock WB, mic status | VIDEO-103 | Controls work; no mid-clip switch |
 | VIDEO-106 | 1080p 120 | VIDEO-101 | 120 fps timeline, audio |
@@ -88,6 +100,10 @@ IDs are stable; use them in branches (`feat/video-101-...`). One task per PR.
 | VIDEO-204 | 720p480 experimental | VIDEO-106 | Stable or closed |
 | VIDEO-205 | Timelapse | VIDEO-101 | Interval + encode |
 | VIDEO-206 | Filters at all resolutions | COLOR-201 | No 1080p30 restriction |
+| VIDEO-801 | 5K/6K/8K 30/60 probe on all rear lenses | VIDEO-101 | Real file dimensions/fps or documented HAL rejection |
+| VIDEO-802 | Real HDR/Dolby encoder probe | VIDEO-201 | HDR10/HLG file; Dolby only with a real profile/licence |
+| VIDEO-803 | Smooth zoom while recording | PHOTO-104 | No session restart; FOV continuity on UW/main/tele |
+| VIDEO-804 | High-resolution thermal test | VIDEO-801 | 1/3/10 min; dropped frames/temperature recorded |
 
 ### Colour, watermark, editor
 
