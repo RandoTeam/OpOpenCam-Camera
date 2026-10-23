@@ -119,7 +119,8 @@ Live Photo pre/post. Host time alone includes USB/adb scheduling.
 ### Before
 
 1. `adb shell am force-stop com.oplus.camera`.
-2. Clear logcat: `adb logcat -c`.
+2. Clear all log buffers: `adb logcat -b all -c`. A plain `-c` can leave old
+   buffers in place; filter the resulting file by the camera PID/start time.
 3. Reset gfxinfo: `adb shell dumpsys gfxinfo com.oplus.camera reset`.
 4. Snapshot: `dumpsys media.camera`, `media.metrics`, `thermalservice`,
    `battery`, `meminfo`, `SurfaceFlinger --list`.

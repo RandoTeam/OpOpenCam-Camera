@@ -144,11 +144,64 @@ calibration data is committed. They must be confirmed with files and traces.
 6. The specialist 8K60 camera remains the reference for 8K60 and seamless lens
    switching.
 
+## Cold-launch trace (same day, no capture)
+
+`am start -W` reported `COLD`, `TotalTime: 239 ms`, `WaitTime: 253 ms`.
+
+Perfetto timeline relative to the `launchingActivity#1` slice:
+
+| Event | Relative time | Duration |
+|---|---|---|
+| `launchingActivity#1` | 0 ms | 239.0 ms |
+| `CameraStartupPerformance.onCameraActivityCreate` | 77.1 ms | 127.8 ms |
+| `configureStreams` (cameraserver) | 171.0 ms | 82.5 ms |
+| `CameraHal::configureStreams` | 171.5 ms | 80.3 ms |
+| `HAL3ConfigureStreams` (provider) | 177.7 ms | 70.2 ms |
+| first `onFrameAvailable` on the camera SurfaceView | 219.3 ms | 0.1 ms |
+| first `VRI[Camera]` frame | 230.6 ms | 0.2 ms |
+| first `HAL3ProcessCaptureRequest : 4` | 275.9 ms | 146.6 ms |
+| next `HAL3ProcessCaptureRequest : 5` | 425.1 ms | 196.7 ms |
+
+So the first preview buffer reached the app's SurfaceView about **219 ms** after
+the launch slice started, and `configureStreams` took **82.5 ms** end-to-end
+(70.2 ms inside the provider). These are single-run numbers; light, thermal
+state and display refresh were not controlled.
+
+CPU scheduling during the same window (sum of scheduled slice durations; can
+exceed wall time on multiple cores):
+
+| Process / thread | CPU time | Slices |
+|---|---|---|
+| provider `vendor.qti.camera.provider-service_64` | 10.16 s | 42,424 |
+| cameraserver `binder:27030_1` | 0.66 s | 638 |
+| provider `binder:23816_3` | 0.56 s | 1,588 |
+| app `previewManagerR` | 0.48 s | 174 |
+| app `PreviewGLThread` | 0.40 s | 465 |
+| app main thread | 0.36 s | 910 |
+| app `CameraUnitCallb` | 0.29 s | 225 |
+| app `preview_asd` | 0.24 s | 1,160 |
+| app `Jit thread pool` | 0.24 s | 519 |
+| app `NDK MediaCodec_` | 0.11 s | 2,969 |
+
+The provider is the dominant CPU consumer even in preview. The app also has a
+persistent `NDK MediaCodec_` thread during preview; this is a candidate for the
+Live Photo pre-buffer or a thumbnail/video encoder and must be investigated
+with `dumpsys media.metrics` and a Live Photo on/off A/B.
+
+Preview produced 277 capture requests / frames in the trace window. The request
+settings allowed `[15 30]` fps; average observed frame rate was about 15 fps.
+Scene light was not measured, so this is not a claim that stock preview is
+limited to 15 fps.
+
+Logcat capture note: `adb logcat -c` did not remove all old buffers in this run.
+Use `adb logcat -b all -c` and filter by the camera PID/start time next time.
+
 ## Next experiments
 
-- Cold launch trace + `am start -W` + first preview frame.
+- Repeat cold launch 5x with controlled light/thermal; compare with our app.
 - 12 MP JPEG capture trace with scene clock; measure shutter-to-file.
 - 50 MP JPEG/RAW capture trace; confirm the 8192x6144 stream is used.
 - Zoom sweep trace; see when physical streams become active.
-- Live Photo run with `dumpsys media.metrics` before/after shutter.
+- Live Photo A/B with `dumpsys media.metrics` before/after shutter; identify the
+  persistent `NDK MediaCodec_` thread.
 - Gallery open with a known file; hash before/after and screenshot timeline.
