@@ -92,6 +92,7 @@ C:\Temp\opencode\stock-lab\
 | [MEDIA_FORENSICS.md](MEDIA_FORENSICS.md) | JPEG/DNG/MP4/XMP extraction and quality metrics |
 | [VIDEO_CAMERA.md](VIDEO_CAMERA.md) | Intake and experiment checklist for the specialist 8K camera |
 | [reports/2026-10-23-stock-recon.md](reports/2026-10-23-stock-recon.md) | First reconnaissance: nine-stream stock session, UI IDs, tool limits |
+| [reports/2026-10-24-livephoto-smoke.md](reports/2026-10-24-livephoto-smoke.md) | First stock Live Photo: 3.18 s clip, 1.67 s pre-roll, mono AAC, Ultra HDR gain map |
 
 ## Status (2026-10-23)
 
@@ -113,4 +114,7 @@ Reconnaissance is complete:
 The first report is [reports/2026-10-23-stock-recon.md](reports/2026-10-23-stock-recon.md).
 It records the active nine-stream stock session, a 1920x1440 preview stream,
 preconfigured 12 MP/50 MP RAW streams and physical ultra-wide/tele streams.
-Capture runs, traces and file forensics are the next phase.
+The first Live Photo report is
+[reports/2026-10-24-livephoto-smoke.md](reports/2026-10-24-livephoto-smoke.md):
+a 3.18 s clip with a 1.67 s pre-roll, 1728x1296 HEVC, mono AAC and an Ultra HDR
+gain map. Full photo-matrix runs and gallery display tests are next.

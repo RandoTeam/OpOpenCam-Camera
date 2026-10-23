@@ -24,6 +24,29 @@ experiments that answer those questions.
 - The stock camera writes to `DCIM/Camera`; our app writes to
   `DCIM/OpOpenCam`.
 
+## 1a. First stock measurement (2026-10-24)
+
+A verified stock Live Photo was captured in landscape with Live Photo on:
+
+| Property | Stock value |
+|---|---|
+| File | 14,227,748 bytes |
+| Primary JPEG | 4096x3072, 5,185,558 bytes |
+| HDR gain map | 2048x1536 grayscale JPEG, 437,573 bytes |
+| Embedded MP4 | 8,604,617 bytes |
+| Clip duration | 3.179667 s |
+| Still presentation timestamp | 1.66635 s |
+| Approx. pre-roll / post-roll | 1.666 s / 1.513 s |
+| Video | HEVC Main L150, 1728x1296, 30 fps, ~20.3 Mbps |
+| Audio | AAC LC, 48 kHz, **mono**, 192 kbps |
+| XMP | `GCamera:MotionPhoto`, `MotionPhotoPresentationTimestampUs`, `OpCamera:OLivePhotoVersion=2`, `hdrgm:Version=1.0` |
+| Container items | Primary JPEG, GainMap JPEG, MotionPhoto MP4 |
+
+This is **not** 3+3: stock is shorter, and stock audio is mono. The gain map
+also suggests the gallery's extra dynamic range is already in the file, not a
+later rewrite. Details and automation lessons:
+[reports/2026-10-24-livephoto-smoke.md](reports/2026-10-24-livephoto-smoke.md).
+
 ## 2. Hypotheses to test
 
 | # | Hypothesis | Evidence that would confirm | Evidence that would reject |

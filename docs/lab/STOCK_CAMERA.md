@@ -148,6 +148,24 @@ Live Photo pre/post. Host time alone includes USB/adb scheduling.
 5. Write `report.jsonl` and a short `report.md`.
 6. Record temperature and battery delta.
 
+### 5.1 Stock app standby and recovery
+
+The stock camera can enter `com.oplus.camera/.setting.ScreenOffActivity`
+("Коснитесь для предварительного просмотра") after a period without
+interaction. The runner must:
+
+- detect the activity before every action;
+- tap the preview centre once and re-read the foreground activity;
+- abort the case if a different package is in front;
+- never press system `Back` twice (that exits to the launcher); use the UI
+  close/back controls and verify the package;
+- keep the screen awake and, for long runs, send a harmless keepalive tap.
+
+MediaStore `is_pending=0` does not guarantee the file is complete. The runner
+must also wait until the on-disk size is stable twice before pulling, and should
+identify new files with a marker plus `find -newer`, not a full MediaStore query
+(which can be huge and truncated).
+
 ## 6. Scenario matrix
 
 ### 6.1 Photo
