@@ -66,6 +66,7 @@ coexists with our debug app. No package switching is needed for observation.
 | Live Photo path | vendor `livephoto_coverenhancer` with RRDBNet + QNN HTP libraries; cover enhancement timing unproven |
 | Gallery | `com.coloros.gallery3d`; `PhotoEditorActivity` exposes `ACTION_EDIT`; post-processing still unexplained |
 | Camera metadata | `dumpsys media.camera` exposes static stream configs and vendor tags; `dumpsys media.metrics` exposes codec sessions |
+| Preview session | 9 output streams active: 1920x1440 preview, 4096x3072 RAW/YUV stills, physical UW/tele/tele2, 8192x6144 RAW; still streams idle until capture |
 | Debug menus | stock debug/log activities are signature-protected; `adb shell` cannot open them |
 | Rootless limits | GPU busy/clock sysfs denied; stock userspace callstacks unavailable; NPU/DSP use must be inferred |
 

@@ -91,6 +91,7 @@ C:\Temp\opencode\stock-lab\
 | [UI_INVENTORY.md](UI_INVENTORY.md) | Complete photo-UI inventory and animation/haptic capture |
 | [MEDIA_FORENSICS.md](MEDIA_FORENSICS.md) | JPEG/DNG/MP4/XMP extraction and quality metrics |
 | [VIDEO_CAMERA.md](VIDEO_CAMERA.md) | Intake and experiment checklist for the specialist 8K camera |
+| [reports/2026-10-23-stock-recon.md](reports/2026-10-23-stock-recon.md) | First reconnaissance: nine-stream stock session, UI IDs, tool limits |
 
 ## Status (2026-10-23)
 
@@ -109,4 +110,7 @@ Reconnaissance is complete:
 - GPU sysfs counters and userspace callstacks of the stock app are not
   available rootless; see [STOCK_CAMERA.md](STOCK_CAMERA.md) for the fallback.
 
+The first report is [reports/2026-10-23-stock-recon.md](reports/2026-10-23-stock-recon.md).
+It records the active nine-stream stock session, a 1920x1440 preview stream,
+preconfigured 12 MP/50 MP RAW streams and physical ultra-wide/tele streams.
 Capture runs, traces and file forensics are the next phase.

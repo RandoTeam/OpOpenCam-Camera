@@ -344,7 +344,12 @@ Target tools (to be added under `tools/lab/`):
 5. `report.py` - JSONL to Markdown with tables and links to local artifacts.
 6. `perfetto/stock_camera.pbtxt` - atrace `camera,hal,gfx,view,video,audio,
    nnapi,thermal,freq,idle,sched,binder_driver,memory,power,disk,am,wm,input`,
-   plus `android.surfaceflinger.frametimeline`, `linux.sys_stats`.
+   plus `android.surfaceflinger.frametimeline` and `linux.process_stats`.
+   On this device the config must be placed in `/data/misc/perfetto-configs`
+   and the trace written to `/data/misc/perfetto-traces`; Perfetto cannot write
+   to `/data/local/tmp` as its own user. Do not use `STAT_FREQ_TIMES` - the
+   installed Perfetto build rejects it. Use atrace `freq` plus the `cpufreq`
+   counter tracks for frequency data.
 7. `scene/index.html` - our own test chart with a millisecond clock.
 
 The driver must never rely on a hard-coded coordinate for a labelled control.
@@ -398,6 +403,12 @@ Verified read-only:
 - GPU busy/clock sysfs nodes are permission-denied;
 - `simpleperf` can list hardware events but cannot attach a usable event to the
   stock app in this configuration.
+
+The first active-session dump found a **nine-stream preview session** with a
+1920x1440 YUV preview, 4096x3072 RAW/YUV still streams, physical ultra-wide/
+tele/tele2 streams and an 8192x6144 RAW stream preconfigured but idle. See
+[reports/2026-10-23-stock-recon.md](reports/2026-10-23-stock-recon.md) for the
+table and implications.
 
 Not yet measured: every capture latency, Live Photo duration, gallery
 enhancement, actual 8K30 output, and the full UI animation set.
