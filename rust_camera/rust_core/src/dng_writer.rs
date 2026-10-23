@@ -306,9 +306,18 @@ pub fn write_dng_16bit<P: AsRef<Path>>(
         }
     }
 
-    // 3. Write Raw 16-bit CFA Bayer pixels
+    // 3. Write Raw 16-bit CFA Bayer pixels in chunks. Writing one 2-byte
+    // `write_all` per sample made 50 MP DNGs unnecessarily slow.
+    let mut sample_buffer: Vec<u8> = Vec::with_capacity(64 * 1024);
     for &sample in raw_pixels_16bit {
-        writer.write_all(&sample.to_le_bytes())?;
+        sample_buffer.extend_from_slice(&sample.to_le_bytes());
+        if sample_buffer.len() >= 64 * 1024 {
+            writer.write_all(&sample_buffer)?;
+            sample_buffer.clear();
+        }
+    }
+    if !sample_buffer.is_empty() {
+        writer.write_all(&sample_buffer)?;
     }
 
     // Pad if pixel slice length was smaller than width * height
