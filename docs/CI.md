@@ -35,14 +35,12 @@ The same suite passes locally (29 host tests at the time of writing).
 
 ## Release history
 
+Only `v0.4.0-alpha.1` is a public release. Earlier tags were removed during
+the clean repository recreation and are not public.
+
 | Tag | Date | Notes |
 |---|---|---|
 | `v0.4.0-alpha.1` | 2026-10-22 | 4K 4:3 30 / 4K 16:9 60 video, stereo AAC; 25 MP closed |
-| `v0.3.0-alpha.1` | 2026-10-22 | RAW 50 DNG, vendor identity, ~50 ms preview start |
-| `v0.2.2-alpha.1` | 2026-10-22 | fix `libmediandk` startup crash |
-| `v0.2.1-alpha.1` | 2026-10-22 | NCC HDR alignment |
-| `v0.2.0-alpha.1` | 2026-10-22 | 50 MP/RAW/HDR/lens modes |
-| `v0.1.0-alpha.1` | 2026-10-22 | first device-verified engine; debug-signed alpha |
 
 ## Signing
 

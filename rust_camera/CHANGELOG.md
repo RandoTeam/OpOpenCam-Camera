@@ -4,6 +4,10 @@
 > are not included in this repository. The public build has 29 host tests.
 
 All notable changes to the OpOpenCam Rust camera are documented here.
+
+> **Public release history:** only `v0.4.0-alpha.1` is currently published. Earlier
+> `0.1`?`0.3` entries predate the clean public repository recreation and their tags
+> are intentionally not public.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
@@ -150,8 +154,3 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   preview and JPEG capture are unaffected.
 
 [0.4.0-alpha.1]: https://github.com/RandoTeam/OpOpenCam-Camera/releases/tag/v0.4.0-alpha.1
-[0.3.0-alpha.1]: https://github.com/RandoTeam/OpOpenCam-Camera/releases/tag/v0.3.0-alpha.1
-[0.2.2-alpha.1]: https://github.com/RandoTeam/OpOpenCam-Camera/releases/tag/v0.2.2-alpha.1
-[0.2.1-alpha.1]: https://github.com/RandoTeam/OpOpenCam-Camera/releases/tag/v0.2.1-alpha.1
-[0.2.0-alpha.1]: https://github.com/RandoTeam/OpOpenCam-Camera/releases/tag/v0.2.0-alpha.1
-[0.1.0-alpha.1]: https://github.com/RandoTeam/OpOpenCam-Camera/releases/tag/v0.1.0-alpha.1
