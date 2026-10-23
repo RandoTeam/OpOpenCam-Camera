@@ -9,6 +9,7 @@ use std::io::{BufWriter, Write};
 use std::path::Path;
 
 /// Writes a 16-bit Bayer RAW image to an authentic Adobe DNG 1.4 file
+#[allow(clippy::too_many_arguments)]
 pub fn write_dng_16bit<P: AsRef<Path>>(
     path: P,
     width: u32,
