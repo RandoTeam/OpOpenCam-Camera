@@ -47,7 +47,10 @@ identity and push `main` instead. Never publish a personal email in a merge comm
 
 ## Signing
 
-Alpha/beta APKs are **debug-signed** and clearly marked as such. A production
+Alpha/beta APKs are **debug-signed** and clearly marked as such. The CI-generated
+debug key is not the same as a developer machine's debug key, so installing a
+release APK over a local debug build requires uninstalling the old package first.
+A production
 release requires a dedicated keystore configured through GitHub Actions secrets:
 
 - `ANDROID_KEYSTORE_BASE64`

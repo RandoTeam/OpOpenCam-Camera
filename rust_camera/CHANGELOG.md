@@ -18,6 +18,7 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Rust video session: preview + MediaCodec input surface in one Camera2 session.
 - Verified on device: 16.9 s / 162 MB 4K4:3 file, rotation −90°, repeated
   start/stop; 4K16:9 60 test at 2.8 s / 27 MB.
+- `v0.4.0-alpha.1` release APK installed cleanly and recorded 4K 4:3 video.
 
 ### Known limitations
 

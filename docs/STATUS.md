@@ -24,7 +24,7 @@
 | Mode/lens restart | same Surface, preview resumes |
 | HAL fallback | unsupported mode falls back to 12 MP JPEG |
 | CI | public GitHub Actions green |
-| Release workflow | `v0.4.0-alpha.1` APK + SHA-256 published |
+| Release workflow | `v0.4.0-alpha.1` APK + SHA-256 published; release APK installed and 4K 4:3 video verified |
 
 ## Research completed
 
@@ -61,7 +61,7 @@
 | 4K120 / front 4K unavailable | HAL stream limits; vendor-only upscale/freezes. |
 | Dolby Vision unavailable | Requires Dolby licence and vendor encoder; HDR10/HLG planned. |
 | Branded looks unavailable | Hasselblad/GR/LUMO/XPAN marks and branded LUTs are not redistributable. |
-| Alpha signing | APKs are debug-signed. |
+| Alpha signing | APKs are debug-signed; CI's generated debug key differs from a local debug build, so uninstall before installing a release APK. |
 | Package identity | Requires uninstalling the old patched clone `com.oneplus.camera`. |
 | No gallery integration | Photos are in app-specific external storage. |
 
