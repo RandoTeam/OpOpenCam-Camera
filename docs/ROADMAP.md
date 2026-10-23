@@ -25,6 +25,32 @@ Planning horizons:
 
 Status legend: ✅ verified · 🟡 partial · 🚧 planned · 🟣 research · ⛔ not portable.
 
+## Execution order (2026-10-23)
+
+Photo is the gate. Video work stays frozen until the photo core is accepted.
+
+1. **Photo quality baseline** — one controlled textured scene: 12 MP JPEG, HDR 3×,
+   RAW 12, RAW 50 vs stock/LMC. Measure texture, clipping, shadow noise, colour and
+   latency before claiming improvement.
+2. **HDR / JPEG / 3A tuning** — benchmark the `perf/hdr-parallel` branch; then
+   AF/AE precapture, tone/colour and repeatable focus. Target faster HDR and fewer
+   soft shots.
+3. **DNG validation** — open RAW 12/50 in Lightroom/RawTherapee. Tags/orientation
+   are fixed; per-sensor calibration remains user-supplied.
+4. **Pro mode** — manual ISO/shutter/WB/focus/EV with capture-result readback,
+   histogram/level/focus peaking. No fake values.
+5. **Live Photo** — 3 s + 3 s, 4:3 HEVC, stereo AAC, Motion Photo XMP. First gate:
+   preflight a three-output session (preview + encoder + JPEG).
+6. **Portrait / macro / night** — depth/segmentation, focus stacking, night merge.
+7. **Video matrix** — 5K/6K/8K 30/60 on all lenses, HDR/Dolby probes; only after
+   photo is accepted. Current probes reject 8K/6K sessions; Dolby encoder exists
+   but a real profile/pipe is unproven.
+8. **Gallery/editor polish** — basic gallery is done; editor, share and RAW
+   handling next.
+
+Gated research: 25 MP RAW alternate vendor/pixel-mode path; 8K/6K vendor sessions;
+Dolby Vision profile; measured smooth lens hand-off.
+
 ## Milestones
 
 | ID | Milestone | Status | Horizon |

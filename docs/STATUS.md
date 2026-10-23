@@ -96,6 +96,7 @@ core is accepted; 5K/6K/8K and HDR/Dolby are later workstreams.
 8. Video matrix (4K/5K/6K/8K, 30/60, HDR/Dolby) only after photo acceptance.
 
 Full feature surface and priorities: [FEATURE_PARITY.md](FEATURE_PARITY.md).
+Canonical execution sequence: [ROADMAP.md](ROADMAP.md#execution-order-2026-10-23).
 
 ## Evidence
 
