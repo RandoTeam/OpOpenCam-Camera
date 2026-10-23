@@ -438,6 +438,16 @@ fun CameraScreen() {
                 SettingChip("2x", zoom == 2f) { setZoomPreset(2f) }
                 SettingChip("3x", zoom == 3f) { setZoomPreset(3f) }
                 SettingChip("6x", zoom == 6f) { setZoomPreset(6f) }
+                SettingChip("FRONT", cameraId == 1) {
+                    if (!recording && !videoBusy && !capturing && !switching) {
+                        restart(1, MODE_JPEG12)
+                    }
+                }
+                SettingChip("REAR", cameraId == 0) {
+                    if (!recording && !videoBusy && !capturing && !switching) {
+                        restart(0, captureMode)
+                    }
+                }
             }
 
             Spacer(Modifier.height(10.dp))

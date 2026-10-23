@@ -229,7 +229,13 @@ impl CameraEngine {
             cv: Condvar::new(),
         });
 
-        let (still_width, still_height) = mode.still_size();
+        // The front sensor's native binned still is 3280x2464; requesting a
+        // 4096x3072 JPEG fails. Keep the rear modes untouched.
+        let (still_width, still_height) = if camera_id == "1" && mode == CaptureMode::Jpeg12 {
+            (3280, 2464)
+        } else {
+            mode.still_size()
+        };
         let mut engine = Self {
             manager: ptr::null_mut(),
             device: ptr::null_mut(),
@@ -440,7 +446,7 @@ impl CameraEngine {
         // 50 MP needs the OPlus/Qualcomm ultra-resolution session parameters.
         // The standard stream list only advertises 4096x3072 JPEG; without the
         // vendor mode the HAL silently returns a 1920x1440 JPEG.
-        let session_params = if self.capture_mode.is_50mp() {
+        let session_params = if self.capture_mode.is_50mp() || self.capture_mode.is_25mp() {
             let mut params: *mut sys::ACaptureRequest = ptr::null_mut();
             let create = sys::ACameraDevice_createCaptureRequest(
                 self.device,
@@ -457,14 +463,19 @@ impl CameraEngine {
                 );
                 let one_u8: u8 = 1;
                 sys::ACaptureRequest_setEntry_u8(params, VENDOR_TAG_ENABLE_IDEAL_RAW, 1, &one_u8);
-                let package = b"com.opopencam.camera\0";
+                // The installed applicationId and Chi whitelist name. The JNI
+                // class package is separate and must not be used here.
+                let package = b"com.oneplus.camera\0";
                 sys::ACaptureRequest_setEntry_u8(
                     params,
                     VENDOR_TAG_OPLUS_PACKAGE_NAME,
                     package.len() as u32,
                     package.as_ptr(),
                 );
-                info!("Camera2 NDK: enabling 50 MP vendor session parameters");
+                info!(
+                    "Camera2 NDK: enabling vendor resolution parameters for {}",
+                    self.capture_mode.label()
+                );
             }
             params
         } else {
@@ -819,7 +830,7 @@ impl CameraEngine {
         let started = Instant::now();
         let result = match self.capture_mode {
             CaptureMode::Jpeg12 | CaptureMode::Jpeg50 => self.capture_jpeg(path),
-            CaptureMode::Raw12 | CaptureMode::Raw50 => self.capture_raw(path),
+            CaptureMode::Raw12 | CaptureMode::Raw25 | CaptureMode::Raw50 => self.capture_raw(path),
             CaptureMode::Hdr3 => self.capture_hdr(path),
         };
         info!(

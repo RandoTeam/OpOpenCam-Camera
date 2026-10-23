@@ -186,6 +186,8 @@ A task is done when all are true:
   photo capture speed, MediaStore saving, quality and smooth zoom are accepted.
 - **Test every photo feature at all relevant lenses/zoom stops**, not only 1×:
   0.6/1/2/3/6, rear and front where applicable.
+- **Use `SelfTestActivity` for the matrix** instead of repeated manual taps. Read
+  `files/selftest/report.jsonl`; release builds must refuse to start it.
 - **Do not dismiss a mode after one API path.** If JPEG fails, test RAW/vendor
   variants before closing; document exactly what was tried.
 

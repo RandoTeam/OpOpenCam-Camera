@@ -71,6 +71,14 @@ Camera2 does not advertise a 25 MP stream. A controlled probe configured a
 
 25 MP is therefore closed. Use 12 MP JPEG or RAW 50; do not upscale.
 
+### RAW 25 probe result
+
+A hidden `Raw25` mode requested a 5888×4416 `RAW_SENSOR` reader with the vendor
+resolution session parameters. The session failed with
+`createCaptureSession -10009` on both logical camera 0 and physical main camera 2;
+no DNG was written. JPEG 25 MP and RAW 25 MP are therefore not exposed. The idea is
+not dismissed: an alternate vendor/pixel-mode path remains a research item.
+
 ## Planned still modes
 
 | Mode | Plan | Priority |

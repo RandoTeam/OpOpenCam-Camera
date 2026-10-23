@@ -30,6 +30,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Debug matrix runner; not part of the product UI. -->
+        <activity
+            android:name=".SelfTestActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout"
+            android:exported="true"
+            android:screenOrientation="portrait" />
     </application>
 
 </manifest>

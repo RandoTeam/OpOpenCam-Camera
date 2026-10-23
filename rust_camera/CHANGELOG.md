@@ -15,9 +15,14 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- MediaStore publication for captures (`Pictures/OpOpenCam`, `Movies/OpOpenCam`);
-  app-specific copy is kept.
+- MediaStore publication for captures (`DCIM/OpOpenCam`, `Movies/OpOpenCam`);
+  app-specific copy is kept; JPEG URI verified with `is_pending=0`.
 - Still captures now apply the current zoom ratio, not only preview zoom.
+- Front camera JPEG fixed to its native 3280×2464; orientation 8.
+- Debug `SelfTestActivity` matrix runner (JSONL), covering JPEG zooms, UW/tele/front,
+  RAW12/RAW25/RAW50, HDR, MediaStore and video/codec probes.
+- RAW25 probe: 5888×4416 session rejected (`-10009`) on logical and physical main;
+  no DNG written. Alternate vendor path remains research.
 - Photo/Video separated at the top of the capture deck; 50 MP JPEG chip removed.
 - Preview switched to 4:3 (1440×1080) so framing matches the 4:3 still.
 - DNG `ColorMatrix1` fixed to XYZ→camera with SRATIONAL; TIFF orientation 6/8.

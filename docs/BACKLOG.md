@@ -13,9 +13,9 @@ IDs are stable; use them in branches (`feat/video-101-...`). One task per PR.
 | PHOTO-104 | Smooth logical zoom + lens hand-off | PHOTO-103 | Slider continuous; no session restart flash |
 | PHOTO-105 | Photo quality baseline | — | Same-scene 12 MP/HDR/RAW vs stock/LMC |
 | PHOTO-106 | Photo-first UI | — | Photo/Video separate; Photo controls only in Photo |
-| PHOTO-107 | 25 MP RAW probe | — | 5888×4416 DNG or documented HAL rejection |
+| PHOTO-107 | 25 MP RAW probe | ? | **Tested:** session rejected `-10009` on logical/main; alternate vendor path pending |
 | PHOTO-108 | 3A/focus readiness before capture | PHOTO-101 | Sharper, repeatable stills; latency recorded |
-| STILL-102 | 25 MP RAW_SENSOR probe | — | Real 5888×4416 DNG or closed with evidence |
+| STILL-102 | 25 MP RAW_SENSOR probe | ? | **Session rejected `-10009`**; try vendor/pixel-mode alternatives before closing |
 | DNG-101 | User-supplied calibration file format | — | Loads ColorMatrix1/2 + black/white; documented |
 | DNG-102 | Load calibration in the DNG writer | DNG-101 | 12/50 MP DNG uses supplied profile |
 | DNG-103 | Validate RAW 12/50 in Lightroom/Photoshop | DNG-102 | Correct colour/levels; no personal screenshots |

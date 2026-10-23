@@ -41,7 +41,7 @@ Status legend: ✅ verified · 🟡 partial · 🚧 planned · 🟣 research · 
 | M9 | 1080p 120 / 720p 60 / front video | 🚧 | later |
 | M10 | Live Photo 6 s + stereo audio | 🚧 | next |
 | M11 | Pro mode: manual controls + overlays | 🚧 | next |
-| M12 | Photo speed + MediaStore/gallery | 🚧 | now |
+| M12 | Photo speed + MediaStore/gallery | 🟡 MediaStore verified; gallery/quality next | now |
 | M12B | Gallery editor | 🚧 | next |
 | M13 | Smooth zoom + lens hand-off (photo/video) | 🚧 | now |
 | M14 | Photo-first UI redesign | 🚧 | now |

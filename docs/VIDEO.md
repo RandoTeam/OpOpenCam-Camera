@@ -19,6 +19,24 @@ the rear cameras. **4K 120 and native front 4K are not advertised**; the module�
 is planned. **Dolby Vision** requires a Dolby licence/vendor encoder; we target
 HDR10/HLG with HEVC Main10 instead.
 
+## Device probes (2026-10-23)
+
+`SelfTestActivity` tried 5K/6K/8K HEVC input surfaces through the normal Camera2
+session:
+
+| Probe | Result |
+|---|---|
+| 7680×4320 @30 logical | session rejected |
+| 7680×4320 @60 logical | session rejected |
+| 6016×4512 @30 main | session rejected |
+| 6016×4512 @60 main | session rejected |
+| Dolby codec query | `c2.qti.dv.encoder` exists |
+
+The Camera2 stream list caps at 4096×3072, so these sizes need a vendor-specific
+session/probe before they can be claimed. Dolby has an encoder component but a real
+Dolby profile/pipe and licence-compatible path are unproven; keep HDR10/HLG as the
+fallback. Do not advertise 8K/6K/Dolby until a real file exists.
+
 ## Architecture
 
 ```mermaid

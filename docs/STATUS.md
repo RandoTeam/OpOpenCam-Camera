@@ -23,8 +23,12 @@ core is accepted; 5K/6K/8K and HDR/Dolby are later workstreams.
 | HDR on ultra-wide / tele | works |
 | 4K 4:3 video | 4096×3072 HEVC Main 30 fps, ~79 Mbps; AAC stereo 48 kHz 192 kbps; 16.9 s / 162 MB; rotation −90° |
 | 4K 16:9 video | 3840×2160 HEVC ~60 fps, ~82 Mbps; AAC stereo; 2.8 s test; preview restored |
-| Photo preview framing | preview now uses 4:3 (1440?1080) and the still/DNG use 4:3; device verification pending. |
-| DNG fallback | ColorMatrix1 now XYZ?camera with SRATIONAL; orientation 6/8; device validation pending. |
+| Photo preview framing | preview 1440?1080 4:3 active; stills remain 4096?3072 |
+| DNG fallback | verified tags: 4096?3072/8192?6144, orientation 6, ColorMatrix1 SRATIONAL |
+| Front JPEG | 3280?2464, orientation 8 |
+| MediaStore | `content://media/external/images/media/303572`, `DCIM/OpOpenCam/`, `is_pending=0` |
+| Logical zoom | 0.6/1/2/3/6 JPEG captures; 0.6 ~1.1 s, 1? ~0.6 s, 3? ~1.2 s, 6? ~1.1 s |
+| RAW speed | RAW12 0.35?0.51 s; RAW50 0.66 s; HDR 3.4 s |
 | Video start/stop | VIDEO chip, record/stop, preview restored; repeat cycle works |
 | Lens 0.6× / 1× / 3× | camera IDs 3 / 0 / 4 |
 | Mode/lens restart | same Surface, preview resumes |
@@ -59,12 +63,13 @@ core is accepted; 5K/6K/8K and HDR/Dolby are later workstreams.
 | 50 MP JPEG unavailable | HAL returns 1920×1440 even for an 8192×6144 reader; engine rejects it via JPEG SOF check. Use RAW 50. |
 | DNG color uncalibrated | Generic sRGB matrix; user-supplied ColorMatrix/black/white levels needed. |
 | HDR alignment | Translation-only NCC; rotation/parallax/moving subjects can ghost. |
-| 25 MP JPEG closed | Session accepts a 5888×4416 JPEG reader, but the HAL returns 1920×1440; rejected by SOF guard. A RAW 5888×4416 probe is still pending. |
-| Photo gallery pending | MediaStore publication is implemented in the working tree but not yet device-verified. |
-| Smooth zoom pending | Logical 0.6–6× zoom and photo-request zoom are implemented; device test across every lens is pending. |
+| 25 MP JPEG closed | Session accepts a 5888×4416 JPEG reader, but the HAL returns 1920×1440; rejected by SOF guard. |
+| RAW 25 probe rejected | 5888×4416 RAW_SENSOR session fails with `createCaptureSession -10009` on logical and physical main; no file. Alternate vendor/pixel-mode paths still pending. |
+| 8K/6K video not exposed | 7680×4320 and 6016×4512 video sessions rejected; camera stream configs cap at 4096×3072. Dolby encoder exists (`c2.qti.dv.encoder`); HDR/Dolby path still unproven. |
+| Photo quality baseline pending | Same-scene comparison against stock/LMC and HDR tone/colour tuning not yet done. |
 | No Live Photo yet | Motion Photo container exists; video/audio ring buffer not implemented. |
 | 4K 4:3 video verified | 4096×3072 HEVC 30 fps + AAC stereo; A/V tail can be ~0.2–0.5 s longer than video, sync trimming is next. |
-| Video modes not yet | 1080p 120, 720p 60, front video, 10-bit/HDR, EIS, MediaStore. |
+| Video modes not yet | 1080p 120, 720p 60, 10-bit/HDR, EIS; 8K/6K sessions rejected. |
 | No Pro/portrait/macro yet | Manual controls, overlays, bokeh and focus stacking are backlogged. |
 | 4K120 / front 4K unavailable | HAL stream limits; vendor-only upscale/freezes. |
 | Dolby Vision unavailable | Requires Dolby licence and vendor encoder; HDR10/HLG planned. |
