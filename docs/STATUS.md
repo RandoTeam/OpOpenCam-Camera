@@ -91,11 +91,11 @@ local and are not committed. Protocol: [lab/](lab/).
 | HDR alignment | Translation-only NCC; rotation/parallax/moving subjects can ghost. |
 | 25 MP JPEG closed | Session accepts a 5888×4416 JPEG reader, but the HAL returns 1920×1440; rejected by SOF guard. |
 | RAW 25 probe rejected | 5888×4416 RAW_SENSOR session fails with `createCaptureSession -10009` on logical and physical main; no file. Alternate vendor/pixel-mode paths still pending. |
-| 8K/6K video not exposed | 7680×4320 and 6016×4512 video sessions rejected; camera stream configs cap at 4096×3072. Dolby encoder exists (`c2.qti.dv.encoder`); HDR/Dolby path still unproven. |
+| 8K/6K video not exposed | Normal Camera2 sessions for 7680×4320, 6016×4512 and their 60 fps variants were rejected; normal stream configs cap at 4096×3072. Stock vendor config indicates 8K**30** via an offline/vendor path, not 8K60; that path is not yet attempted. Dolby encoder exists (`c2.qti.dv.encoder`); HDR/Dolby path still unproven. |
 | Photo quality baseline pending | Same-scene comparison against stock/LMC and HDR tone/colour tuning not yet done. |
 | No Live Photo yet | Motion Photo container exists; video/audio ring buffer not implemented. |
 | 4K 4:3 video verified | 4096×3072 HEVC 30 fps + AAC stereo; A/V tail can be ~0.2–0.5 s longer than video, sync trimming is next. |
-| Video modes not yet | 1080p 120, 720p 60, 10-bit/HDR, EIS; 8K/6K sessions rejected. |
+| Video modes not yet | 1080p 120, 720p 60, 10-bit/HDR, EIS; 8K30 vendor/offline path unproven; 8K60 is not a stock OnePlus capability. |
 | No Pro/portrait/macro yet | Manual controls, overlays, bokeh and focus stacking are backlogged. |
 | 4K120 / front 4K unavailable | HAL stream limits; vendor-only upscale/freezes. |
 | Dolby Vision unavailable | Requires Dolby licence and vendor encoder; HDR10/HLG planned. |

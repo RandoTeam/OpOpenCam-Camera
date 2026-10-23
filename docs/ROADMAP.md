@@ -59,8 +59,10 @@ Photo is the gate. Video work stays frozen until the photo core is accepted.
 5. **Live Photo** — 3 s + 3 s, 4:3 HEVC, stereo AAC, Motion Photo XMP. First gate:
    preflight a three-output session (preview + encoder + JPEG).
 6. **Portrait / macro / night** — depth/segmentation, focus stacking, night merge.
-7. **Video matrix** — 5K/6K/8K 30/60 on all lenses, HDR/Dolby probes; only after
-   photo is accepted. Current probes reject 8K/6K sessions; Dolby encoder exists
+7. **Video matrix** — 8K30 stock parity via the vendor/offline path, 4K60,
+   1080p120, all lenses, HDR/Dolby probes; 8K60 only if a real hardware/vendor
+   path is proven. Only after photo is accepted. Normal Camera2 probes reject
+   8K/6K sessions; the stock config indicates 8K30, and the Dolby encoder exists
    but a real profile/pipe is unproven.
 8. **Gallery/editor polish** — basic gallery is done; editor, share and RAW
    handling next.
@@ -93,7 +95,7 @@ Dolby Vision profile; measured smooth lens hand-off.
 | M17 | LUT/filters, watermark editor, panorama | 🚧 | later |
 | M18 | 10-bit P010/HDR10, HEIF, Ultra HDR | 🚧 | later |
 | M19 | Night, long exposure, burst/motion, document | 🚧 | next/later |
-| M20 | 5K/6K/8K 30/60 video, HDR/Dolby, all lenses | 🟣 | later/research |
+| M20 | 8K30 stock parity; 8K60 research; HDR/Dolby; all lenses | 🟣 | later/research |
 | M21 | Open-model AI editing research | 🟣 | research |
 | M22 | Stock/specialist camera ground-truth lab | 🟣 reconnaissance done; capture runs next | now |
 
