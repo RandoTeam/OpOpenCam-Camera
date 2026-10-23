@@ -27,6 +27,7 @@ core is accepted; 5K/6K/8K and HDR/Dolby are later workstreams.
 | DNG fallback | verified tags: 4096?3072/8192?6144, orientation 6, ColorMatrix1 SRATIONAL |
 | Front JPEG | 3280?2464, orientation 8 |
 | MediaStore | `content://media/external/images/media/303572`, `DCIM/OpOpenCam/`, `is_pending=0` |
+| In-app gallery | thumb + full-screen grid; JPEG preview; DNG/MP4 placeholders |
 | Logical zoom | 0.6/1/2/3/6 JPEG captures; 0.6 ~1.1 s, 1? ~0.6 s, 3? ~1.2 s, 6? ~1.1 s |
 | RAW speed | RAW12 0.35?0.51 s; RAW50 0.66 s; HDR 3.4 s |
 | Video start/stop | VIDEO chip, record/stop, preview restored; repeat cycle works |

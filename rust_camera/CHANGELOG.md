@@ -17,6 +17,7 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - MediaStore publication for captures (`DCIM/OpOpenCam`, `Movies/OpOpenCam`);
   app-specific copy is kept; JPEG URI verified with `is_pending=0`.
+- In-app latest thumbnail and gallery overlay (JPEG preview; DNG/MP4 placeholders).
 - Still captures now apply the current zoom ratio, not only preview zoom.
 - Front camera JPEG fixed to its native 3280×2464; orientation 8.
 - Debug `SelfTestActivity` matrix runner (JSONL), covering JPEG zooms, UW/tele/front,

@@ -66,7 +66,7 @@ IDs are stable; use them in branches (`feat/video-101-...`). One task per PR.
 | PRO-104 | Presets import/export/edit | PRO-101 | JSON format documented |
 | ZOOM-101 | Smooth zoom/lens hand-off | — | No crash; latency/FOV measured |
 | ZOOM-102 | Front camera digital zoom | — | Works within front sensor limit |
-| UI-101 | Gallery/MediaStore | — | Saved photo appears in gallery |
+| UI-101 | Gallery/MediaStore | — | **Verified:** MediaStore URI + in-app thumbnail/grid; editor/share pending |
 | UI-102 | Mode labels + 50 MP message | — | Clear “use R50” state |
 | UI-103 | Global EV slider | — | Photo/video EV works |
 | UI-104 | Tap zoom → focal length | ZOOM-101 | 0.6/1/3/6× presets |
