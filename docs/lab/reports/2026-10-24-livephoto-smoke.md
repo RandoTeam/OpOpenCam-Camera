@@ -74,6 +74,27 @@ The still presentation timestamp is **1.66635 s** into a **3.179667 s** clip:
 This is not the requested 3 s + 3 s. Stock Live Photo is roughly 1.7 s before
 and 1.5 s after.
 
+## A/B: Live Photo off
+
+A second smoke capture used the same scene, camera and 4:3 still, with Live
+Photo switched off through the stock UI. The runner recovered from the stock
+`ScreenOffActivity`, verified the toggle, used a marker + `find -newer`, waited
+for the on-disk size to be stable, and pulled the full file.
+
+| Property | Live Photo off |
+|---|---|
+| File | `DCIM/Camera/IMG20261024012832.jpg` |
+| Total bytes | 5,499,799 |
+| Primary JPEG | 4096x3072, 5,060,495 bytes |
+| Gain map | 2048x1536 grayscale JPEG, 439,304 bytes |
+| Motion Photo MP4 | none |
+| XMP | `hdrgm:Version=1.0`, Container Primary + GainMap |
+| MediaStore | full local size matches on-device size |
+
+So the **Ultra HDR gain map is present even without Live Photo**. Live Photo
+adds the MotionPhoto XMP and the embedded HEVC/AAC clip, increasing the file
+from 5.5 MB to 14.2 MB in this scene.
+
 ## Codec evidence
 
 `dumpsys media.metrics` for the stock app shows long-lived encoder sessions:
@@ -94,9 +115,10 @@ dedicated experiment.
 2. **Stock audio is mono.** Our stereo requirement is an improvement, not a
    parity requirement.
 3. **Stock stills are Ultra HDR.** The gain map is a separate 2048x1536
-   grayscale JPEG inside the same file. This is the likely explanation for the
-   gallery's deeper dynamic range: the file already contains HDR data, and the
-   gallery can render it without rewriting the primary JPEG.
+   grayscale JPEG inside the same file, and it is present with Live Photo off as
+   well. This is the likely explanation for the gallery's deeper dynamic range:
+   the file already contains HDR data, and the gallery can render it without
+   rewriting the primary JPEG.
 4. **Stock video is 1728x1296, not full 4K.** Our implementation can choose
    1728x1296 or a higher 4:3 size; memory and bitrate must be measured.
 5. **The cover is the primary JPEG, not a video frame.** The video frame at

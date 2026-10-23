@@ -44,7 +44,9 @@ A verified stock Live Photo was captured in landscape with Live Photo on:
 
 This is **not** 3+3: stock is shorter, and stock audio is mono. The gain map
 also suggests the gallery's extra dynamic range is already in the file, not a
-later rewrite. Details and automation lessons:
+later rewrite. An A/B with Live Photo off produced a 5,499,799-byte file:
+4096x3072 primary + 2048x1536 gain map, **no MP4**. The gain map is therefore a
+normal still feature, not a Live Photo feature. Details and automation lessons:
 [reports/2026-10-24-livephoto-smoke.md](reports/2026-10-24-livephoto-smoke.md).
 
 ## 2. Hypotheses to test
