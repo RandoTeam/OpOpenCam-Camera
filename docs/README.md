@@ -10,6 +10,7 @@ matches your role.
 | [PROJECT.md](PROJECT.md) | Vision, goals, non-goals, constraints and success criteria |
 | [STATUS.md](STATUS.md) | What is verified today, what is partial, known issues |
 | [FEATURE_PARITY.md](FEATURE_PARITY.md) | Full stock + OPCameraPro feature map, feasibility, priorities |
+| [PHOTO_UI.md](PHOTO_UI.md) | Photo-first UI, separate Video mode, format sheet, states |
 | [PIPELINE.md](PIPELINE.md) | End-to-end camera pipeline and data flow |
 | [ROADMAP.md](ROADMAP.md) | Now / next / later milestones and acceptance criteria |
 | [BACKLOG.md](BACKLOG.md) | Prioritized task list with IDs and dependencies |

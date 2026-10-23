@@ -42,6 +42,7 @@ Status legend: ✅ verified · 🟡 partial · 🚧 planned · 🟣 research · 
 | M10 | Live Photo 6 s + stereo audio | 🚧 | next |
 | M11 | Pro mode: manual controls + overlays | 🚧 | next |
 | M12 | Photo speed + MediaStore/gallery | 🚧 | now |
+| M12B | Gallery editor | 🚧 | next |
 | M13 | Smooth zoom + lens hand-off (photo/video) | 🚧 | now |
 | M14 | Photo-first UI redesign | 🚧 | now |
 | M15 | 25 MP RAW probe | 🚧 | now |
@@ -82,6 +83,8 @@ recorded per mode; failures are explicit.
 requested FOV; no crash/restart flash.
 
 ### M14 — Photo-first UI redesign
+
+Design contract: [PHOTO_UI.md](PHOTO_UI.md).
 
 - Separate **Photo** and **Video** top-level segments; Video is not a chip in the
   Photo control row.
