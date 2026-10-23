@@ -173,6 +173,13 @@ fun CameraScreen() {
         describeStatus(requestedCamera, requestedMode, ok)
     }
 
+    fun setZoomPreset(value: Float) {
+        if (videoBusy) return
+        cameraId = 0
+        zoom = value
+        applyZoom(value) { status = it }
+    }
+
     fun beginVideo() {
         if (recording || videoBusy) return
         if (!audioGranted) {
@@ -233,9 +240,16 @@ fun CameraScreen() {
                     NativeBridge.nativeStartPreview(surface, cameraId, captureMode)
                 }
             }
+            val savedFile = result.getOrNull()
+            val published = if (savedFile != null) {
+                withContext(Dispatchers.IO) { MediaStoreSaver.publishVideo(context, savedFile) }
+            } else {
+                null
+            }
             result.onSuccess {
-                status = "Saved ${it.name}"
-                Toast.makeText(context, "Saved ${it.name}", Toast.LENGTH_SHORT).show()
+                val suffix = if (published != null) " · Gallery" else " · not indexed"
+                status = "Saved ${it.name}$suffix"
+                Toast.makeText(context, "Saved ${it.name}$suffix", Toast.LENGTH_SHORT).show()
             }.onFailure {
                 status = "Video stop failed: ${it.message ?: it.javaClass.simpleName}"
             }
@@ -346,25 +360,34 @@ fun CameraScreen() {
                 .padding(bottom = 34.dp, top = 36.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                SettingChip("VIDEO", videoMode) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SettingChip("PHOTO", !videoMode) {
                     if (!recording && !videoBusy) {
-                        videoMode = !videoMode
-                        status = if (videoMode) "Video 4K 4:3 · 30 fps" else "Photo mode"
+                        videoMode = false
+                        status = "Photo mode"
                     }
                 }
-                SettingChip("12", captureMode == MODE_JPEG12) { restart(cameraId, MODE_JPEG12) }
-                SettingChip("50", captureMode == MODE_JPEG50) { restart(cameraId, MODE_JPEG50) }
-                SettingChip("RAW", captureMode == MODE_RAW12) { restart(cameraId, MODE_RAW12) }
-                SettingChip("R50", captureMode == MODE_RAW50) { restart(cameraId, MODE_RAW50) }
-                SettingChip("HDR", captureMode == MODE_HDR3) { restart(cameraId, MODE_HDR3) }
+                SettingChip("VIDEO", videoMode) {
+                    if (!recording && !videoBusy) {
+                        videoMode = true
+                        status = if (video4k16) "Video 4K 16:9 · 60 fps" else "Video 4K 4:3 · 30 fps"
+                    }
+                }
             }
 
-            if (videoMode) {
-                Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(8.dp))
+
+            if (!videoMode) {
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SettingChip("12", captureMode == MODE_JPEG12) { restart(cameraId, MODE_JPEG12) }
+                    SettingChip("RAW", captureMode == MODE_RAW12) { restart(cameraId, MODE_RAW12) }
+                    SettingChip("R50", captureMode == MODE_RAW50) { restart(cameraId, MODE_RAW50) }
+                    SettingChip("HDR", captureMode == MODE_HDR3) { restart(cameraId, MODE_HDR3) }
+                }
+            } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     SettingChip(
                         if (video4k16) "4K 16:9 · 60" else "4K 4:3 · 30",
@@ -381,9 +404,11 @@ fun CameraScreen() {
             Spacer(Modifier.height(10.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SettingChip("0.6", cameraId == 3) { restart(3, captureMode) }
-                SettingChip("1x", cameraId == 0) { restart(0, captureMode) }
-                SettingChip("3x", cameraId == 4) { restart(4, captureMode) }
+                SettingChip("0.6", zoom == 0.6f) { setZoomPreset(0.6f) }
+                SettingChip("1x", zoom == 1f) { setZoomPreset(1f) }
+                SettingChip("2x", zoom == 2f) { setZoomPreset(2f) }
+                SettingChip("3x", zoom == 3f) { setZoomPreset(3f) }
+                SettingChip("6x", zoom == 6f) { setZoomPreset(6f) }
             }
 
             Spacer(Modifier.height(10.dp))
@@ -392,7 +417,7 @@ fun CameraScreen() {
                 value = zoom,
                 onValueChange = { zoom = it },
                 onValueChangeFinished = { applyZoom(zoom) { status = it } },
-                valueRange = if (cameraId == 0) 0.6f..3f else 1f..3f,
+                valueRange = 0.6f..6f,
                 colors = SliderDefaults.colors(
                     thumbColor = Accent,
                     activeTrackColor = Accent,
@@ -440,7 +465,14 @@ fun CameraScreen() {
                                 val file = File(dir, "IMG_${System.currentTimeMillis()}.$extension")
                                 val ok = NativeBridge.nativeCapturePhoto(file.absolutePath)
                                 when {
-                                    ok -> "Saved ${file.name}"
+                                    ok -> {
+                                        val uri = MediaStoreSaver.publishImage(context, file)
+                                        if (uri != null) {
+                                            "Saved ${file.name} · Gallery"
+                                        } else {
+                                            "Saved ${file.name} · not indexed"
+                                        }
+                                    }
                                     effectiveMode == MODE_JPEG50 -> "50 MP JPEG unavailable — use R50"
                                     else -> "Capture failed - see logcat"
                                 }

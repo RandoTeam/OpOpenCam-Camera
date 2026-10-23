@@ -11,6 +11,24 @@ All notable changes to the OpOpenCam Rust camera are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- MediaStore publication for captures (`Pictures/OpOpenCam`, `Movies/OpOpenCam`);
+  app-specific copy is kept.
+- Still captures now apply the current zoom ratio, not only preview zoom.
+- Photo/Video separated at the top of the capture deck; 50 MP JPEG chip removed.
+- Capture timing log (`Camera2 NDK: capture ... finished in ...`).
+- Photo-first roadmap: saving/gallery, speed, smooth zoom, 25 MP RAW probe and UI
+  redesign are P0; video is frozen.
+
+### Validation pending
+
+- MediaStore publication and logical 0.6–6× still zoom require a reconnected device.
+- 25 MP RAW (RAW_SENSOR 5888×4416) probe not yet run.
+- Photo quality baseline and latency numbers not yet measured.
+
 ## [0.4.0-alpha.1] ? 2026-10-22
 
 ### Added

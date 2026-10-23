@@ -6,6 +6,10 @@
 **Package:** `com.oneplus.camera` (JNI class package `com.opopencam.camera`)
 **Public build:** original code only; no vendor binaries, LUTs or calibration assets.
 
+**Current priority:** photo core first — capture speed, quality, saving/gallery, smooth
+zoom and lens hand-off. Video remains an experimental 4K feature until the photo
+core is accepted; 5K/6K/8K and HDR/Dolby are later workstreams.
+
 ## Verified on device
 
 | Feature | Evidence |
@@ -53,7 +57,9 @@
 | 50 MP JPEG unavailable | HAL returns 1920×1440 even for an 8192×6144 reader; engine rejects it via JPEG SOF check. Use RAW 50. |
 | DNG color uncalibrated | Generic sRGB matrix; user-supplied ColorMatrix/black/white levels needed. |
 | HDR alignment | Translation-only NCC; rotation/parallax/moving subjects can ghost. |
-| 25 MP unavailable | Session accepts a 5888×4416 reader, but the HAL returns 1920×1440 JPEG; rejected by SOF guard. |
+| 25 MP JPEG closed | Session accepts a 5888×4416 JPEG reader, but the HAL returns 1920×1440; rejected by SOF guard. A RAW 5888×4416 probe is still pending. |
+| Photo gallery pending | MediaStore publication is implemented in the working tree but not yet device-verified. |
+| Smooth zoom pending | Logical 0.6–6× zoom and photo-request zoom are implemented; device test across every lens is pending. |
 | No Live Photo yet | Motion Photo container exists; video/audio ring buffer not implemented. |
 | 4K 4:3 video verified | 4096×3072 HEVC 30 fps + AAC stereo; A/V tail can be ~0.2–0.5 s longer than video, sync trimming is next. |
 | Video modes not yet | 1080p 120, 720p 60, front video, 10-bit/HDR, EIS, MediaStore. |
@@ -67,12 +73,19 @@
 
 ## Current focus
 
-1. DNG calibration workflow (user-supplied profiles).
-2. HDR quality comparison and tuning.
-3. A/V tail trimming; 1080p 120; 10-minute thermal test.
-4. Live Photo 6 s / stereo audio.
-5. Pro mode and gallery foundation.
-6. 1080p 120 / 720p 60 / front video.
+1. Photo speed: measure 12 MP/RAW/HDR latency, add 3A/focus readiness and clear
+   progress/saving feedback.
+2. Photo saving/gallery: MediaStore publication for JPEG/DNG/MP4 plus in-app
+   latest thumbnail/gallery.
+3. Photo quality baseline: same-scene 12 MP vs HDR vs RAW vs stock/LMC; texture,
+   noise, DR and colour.
+4. Smooth zoom/lens hand-off: logical camera 0.6–6×, zoom applied to still
+   requests, tests at every lens stop.
+5. 25 MP RAW probe (RAW_SENSOR 5888×4416 via vendor mode); JPEG 25 MP is closed.
+6. Photo-first UI: separate Photo and Video segments; remove still controls from
+   Video.
+7. Live Photo 3+3 after the photo core.
+8. Video matrix (4K/5K/6K/8K, 30/60, HDR/Dolby) only after photo acceptance.
 
 Full feature surface and priorities: [FEATURE_PARITY.md](FEATURE_PARITY.md).
 

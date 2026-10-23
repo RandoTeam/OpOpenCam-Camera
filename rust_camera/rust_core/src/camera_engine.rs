@@ -196,6 +196,7 @@ pub struct CameraEngine {
     capture_mode: CaptureMode,
     still_width: i32,
     still_height: i32,
+    zoom_ratio: f32,
     video_window: *mut sys::ANativeWindow,
     video_output: *mut sys::ACaptureSessionOutput,
     video_target: *mut sys::ACameraOutputTarget,
@@ -245,6 +246,7 @@ impl CameraEngine {
             capture_mode: mode,
             still_width,
             still_height,
+            zoom_ratio: 1.0,
             video_window: ptr::null_mut(),
             video_output: ptr::null_mut(),
             video_target: ptr::null_mut(),
@@ -300,6 +302,7 @@ impl CameraEngine {
             capture_mode: CaptureMode::Jpeg12,
             still_width: 0,
             still_height: 0,
+            zoom_ratio: 1.0,
             video_window,
             video_output: ptr::null_mut(),
             video_target: ptr::null_mut(),
@@ -734,6 +737,8 @@ impl CameraEngine {
             ));
         }
         Self::apply_common_entries(request);
+        let zoom = self.zoom_ratio;
+        sys::ACaptureRequest_setEntry_float(request, TAG_ZOOM_RATIO, 1, &zoom);
         Ok(request)
     }
 
@@ -806,11 +811,19 @@ impl CameraEngine {
         if !self.running || self.session.is_null() || self.device.is_null() {
             return Err("camera session is not running".into());
         }
-        match self.capture_mode {
+        let started = Instant::now();
+        let result = match self.capture_mode {
             CaptureMode::Jpeg12 | CaptureMode::Jpeg50 => self.capture_jpeg(path),
             CaptureMode::Raw12 | CaptureMode::Raw50 => self.capture_raw(path),
             CaptureMode::Hdr3 => self.capture_hdr(path),
-        }
+        };
+        info!(
+            "Camera2 NDK: capture {} finished in {:?} (ok={})",
+            self.capture_mode.label(),
+            started.elapsed(),
+            result.is_ok()
+        );
+        result
     }
 
     fn capture_jpeg(&mut self, path: &str) -> Result<(), String> {
@@ -973,6 +986,7 @@ impl CameraEngine {
                 ));
             }
         }
+        self.zoom_ratio = ratio;
         info!("Camera2 NDK: zoom ratio set to {:.2}", ratio);
         Ok(())
     }
