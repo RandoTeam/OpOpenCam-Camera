@@ -20,7 +20,8 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   centered shutter and flip-camera button.
 - Top-bar format badge opens a bottom sheet with working formats only; 50 MP
   JPEG is explained as unavailable instead of being a dead chip.
-- Pinch-to-zoom on the preview and a live REC timer in Video mode.
+- Pinch-to-zoom on the preview (within the active lens) and a live REC timer
+  in Video mode.
 - Zoom presets now select real lenses: 0.6x = physical ultra-wide (camera 3),
   3x = physical telephoto (camera 4), 6x = 2x crop on the telephoto. The app does
   not copy the stock low-light behavior of keeping 3x/6x on the main sensor.

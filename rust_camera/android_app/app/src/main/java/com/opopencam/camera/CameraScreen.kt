@@ -502,9 +502,19 @@ fun CameraScreen() {
                 .align(Alignment.Center)
                 .pointerInput(cameraId) {
                     detectTransformGestures { _, _, zoomChange, _ ->
-                        if (cameraId == 0 && !capturing && !videoBusy && !switching && !recording) {
-                            zoom = (zoom * zoomChange).coerceIn(0.6f, 6f)
-                            sensorZoom = zoom
+                        if (!capturing && !videoBusy && !switching && !recording) {
+                            // Keep the pinch within the active lens; use the
+                            // pills to cross lens boundaries. This avoids a
+                            // silent logical-camera switch during a gesture.
+                            val (displayFactor, minSensor, maxSensor) = when (cameraId) {
+                                3 -> Triple(0.6f, 1f, 1.667f)
+                                4 -> Triple(3f, 1f, 2f)
+                                1 -> Triple(1f, 1f, 2f)
+                                else -> Triple(1f, 0.6f, 6f)
+                            }
+                            val newSensor = (sensorZoom * zoomChange).coerceIn(minSensor, maxSensor)
+                            sensorZoom = newSensor
+                            zoom = displayFactor * newSensor
                         }
                     }
                 }
