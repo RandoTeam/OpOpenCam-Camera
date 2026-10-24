@@ -28,6 +28,23 @@ IDs are stable; use them in branches (`feat/video-101-...`). One task per PR.
 | CI-101 | Keep public CI/release green | — | Green on main and tags |
 | DOC-101 | Full parity documentation | — | FEATURE_PARITY/ROADMAP/BACKLOG merged |
 
+## User-fixed camera UX backlog (2026-10-24)
+
+Recorded from user feedback. These are **plan items only**; implementation has
+not started. Suggested order after the current photo-quality work:
+
+1. orientation / in-place rotation
+2. background capture and processing
+3. zoom readout and zoom gesture
+
+| ID | Task | Acceptance |
+|---|---|---|
+| UI-301 | Orientation detection and standby rotation | The app detects display rotation 0/90/180/270. The idle/standby screen rotates with the device instead of staying in one orientation. No portrait lock or cinematic letterbox. |
+| UI-302 | In-place control rotation with stock layout parity | On rotation, controls must not migrate to other edges or reflow. Each control keeps its stock-camera screen position; only the controls that need it rotate their glyph/label in place. The PHOTO/VIDEO switch and similar fixed controls do not rotate. The preview must not be stretched full-screen behind the buttons. Use the stock camera in the same rotated state as the reference. |
+| CAP-301 | Background capture/processing queue | Shutter and mode controls return immediately. HDR/RAW capture, fusion, encoding and saving run on a worker; repeated taps queue shots instead of blocking. The UI stays responsive, with per-shot progress and failure states. Stock-like behavior: the user can keep shooting while the previous shot processes. |
+| UI-303 | Zoom readout: magnification vs focal length | Add a setting to show zoom as `0.6/1/2/3/6x` or as professional millimetre equivalents (`15/23/48/73/146 mm`). The label must reflect the active lens/crop, not a fake value. |
+| UI-304 | Long-press zoom arc | Long-pressing the zoom control opens a semicircular/arc dial for smooth zoom across lenses. Dragging zooms continuously; releasing keeps the value; it must not trigger the shutter or move other controls. |
+
 ## P1 — next
 
 > Photo core (P0) must be accepted before new video work. Video rows below are
