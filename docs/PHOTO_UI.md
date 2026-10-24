@@ -179,6 +179,7 @@ Device-validated:
 - 0.6x opens the physical ultra-wide (camera 3), 1x returns to logical 0;
 - 3x, 6x and 0.6x JPEGs are upright (orientation 3 in landscape at rotation 270);
 - RAW 50 DNG is 8192x6144, orientation 3, and renders upright;
+- HDR 3x output is 4096x3072 and upright after orientation-aware pixel rotation;
 - the format sheet, saving progress card and gallery thumbnail work.
 
 Pending: front camera, video orientation, pinch on a physical two-finger

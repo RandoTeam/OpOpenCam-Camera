@@ -22,6 +22,7 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and RAW 50 DNGs carry orientation 3.
 - Device-validated physical lens presets: 3x tele (camera 4), 6x tele crop, 0.6x
   ultra-wide (camera 3), 1x logical; separate JPEG/RAW captures are upright.
+- HDR 3x output follows the display orientation; landscape HDR is 4096x3072.
 - Photo UI v2: stock-like PHOTO/VIDEO segmented switch, orange selection accent,
   viewfinder grid, safe-area insets, and a capture row with gallery thumb,
   centered shutter and flip-camera button.

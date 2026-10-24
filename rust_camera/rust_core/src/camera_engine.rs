@@ -971,9 +971,23 @@ impl CameraEngine {
         }
 
         let fused = exposure_fusion_aligned(&rgb_frames).map_err(|e| e.to_string())?;
-        // The sensor output is landscape; rotate to portrait for the UI.
-        let portrait = rotate90_cw(&fused);
-        let jpeg = encode_jpeg(&portrait, 92).map_err(|e| e.to_string())?;
+        // Match the HDR still to the current display orientation. The fused
+        // buffer is landscape; 180 degrees is the normal landscape camera case,
+        // 90 degrees is the portrait case.
+        let oriented = match self.jpeg_orientation {
+            90 => rotate90_cw(&fused),
+            180 => {
+                let first = rotate90_cw(&fused);
+                rotate90_cw(&first)
+            }
+            270 => {
+                let first = rotate90_cw(&fused);
+                let second = rotate90_cw(&first);
+                rotate90_cw(&second)
+            }
+            _ => fused,
+        };
+        let jpeg = encode_jpeg(&oriented, 92).map_err(|e| e.to_string())?;
         std::fs::write(path, &jpeg).map_err(|e| format!("write {}: {}", path, e))?;
         info!(
             "Camera2 NDK: HDR saved {} frames -> {} bytes to {}",
@@ -989,7 +1003,7 @@ impl CameraEngine {
     /// `degrees` is the clockwise rotation the viewer must apply, computed from
     /// the physical sensor orientation and the current display rotation.
     pub fn set_orientation(&mut self, degrees: i32) -> Result<(), String> {
-        let normalized = ((degrees % 360) + 360) % 360;
+        let normalized = degrees.rem_euclid(360);
         if normalized % 90 != 0 {
             return Err(format!(
                 "invalid orientation {}; expected a multiple of 90",
