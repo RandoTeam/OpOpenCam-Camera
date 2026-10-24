@@ -197,6 +197,8 @@ pub struct CameraEngine {
     capture_mode: CaptureMode,
     still_width: i32,
     still_height: i32,
+    jpeg_orientation: i32,
+    dng_orientation: u16,
     zoom_ratio: f32,
     video_window: *mut sys::ANativeWindow,
     video_output: *mut sys::ACaptureSessionOutput,
@@ -253,6 +255,12 @@ impl CameraEngine {
             capture_mode: mode,
             still_width,
             still_height,
+            jpeg_orientation: if camera_id == "1" {
+                JPEG_ORIENTATION_FRONT
+            } else {
+                JPEG_ORIENTATION_REAR
+            },
+            dng_orientation: if camera_id == "1" { 8 } else { 6 },
             zoom_ratio: 1.0,
             video_window: ptr::null_mut(),
             video_output: ptr::null_mut(),
@@ -309,6 +317,12 @@ impl CameraEngine {
             capture_mode: CaptureMode::Jpeg12,
             still_width: 0,
             still_height: 0,
+            jpeg_orientation: if camera_id == "1" {
+                JPEG_ORIENTATION_FRONT
+            } else {
+                JPEG_ORIENTATION_REAR
+            },
+            dng_orientation: if camera_id == "1" { 8 } else { 6 },
             zoom_ratio: 1.0,
             video_window,
             video_output: ptr::null_mut(),
@@ -723,11 +737,7 @@ impl CameraEngine {
     unsafe fn apply_jpeg_entries(&self, request: *mut sys::ACaptureRequest) {
         let quality = JPEG_QUALITY;
         sys::ACaptureRequest_setEntry_u8(request, TAG_JPEG_QUALITY, 1, &quality);
-        let orientation = if self.camera_id == "1" {
-            JPEG_ORIENTATION_FRONT
-        } else {
-            JPEG_ORIENTATION_REAR
-        };
+        let orientation = self.jpeg_orientation;
         sys::ACaptureRequest_setEntry_i32(request, TAG_JPEG_ORIENTATION, 1, &orientation);
     }
 
@@ -908,7 +918,7 @@ impl CameraEngine {
                 pixels[y * width + x] = u16::from_le_bytes([plane[i], plane[i + 1]]);
             }
         }
-        let orientation = if self.camera_id == "1" { 8 } else { 6 };
+        let orientation = self.dng_orientation;
         write_dng_16bit(
             path,
             width as u32,
@@ -961,15 +971,56 @@ impl CameraEngine {
         }
 
         let fused = exposure_fusion_aligned(&rgb_frames).map_err(|e| e.to_string())?;
-        // The sensor output is landscape; rotate to portrait for the UI.
-        let portrait = rotate90_cw(&fused);
-        let jpeg = encode_jpeg(&portrait, 92).map_err(|e| e.to_string())?;
+        // Match the HDR still to the current display orientation. The fused
+        // buffer is landscape; 180 degrees is the normal landscape camera case,
+        // 90 degrees is the portrait case.
+        let oriented = match self.jpeg_orientation {
+            90 => rotate90_cw(&fused),
+            180 => {
+                let first = rotate90_cw(&fused);
+                rotate90_cw(&first)
+            }
+            270 => {
+                let first = rotate90_cw(&fused);
+                let second = rotate90_cw(&first);
+                rotate90_cw(&second)
+            }
+            _ => fused,
+        };
+        let jpeg = encode_jpeg(&oriented, 92).map_err(|e| e.to_string())?;
         std::fs::write(path, &jpeg).map_err(|e| format!("write {}: {}", path, e))?;
         info!(
             "Camera2 NDK: HDR saved {} frames -> {} bytes to {}",
             rgb_frames.len(),
             jpeg.len(),
             path
+        );
+        Ok(())
+    }
+
+    /// Updates the JPEG/DNG orientation used by the next still request.
+    ///
+    /// `degrees` is the clockwise rotation the viewer must apply, computed from
+    /// the physical sensor orientation and the current display rotation.
+    pub fn set_orientation(&mut self, degrees: i32) -> Result<(), String> {
+        let normalized = degrees.rem_euclid(360);
+        if normalized % 90 != 0 {
+            return Err(format!(
+                "invalid orientation {}; expected a multiple of 90",
+                degrees
+            ));
+        }
+        self.jpeg_orientation = normalized;
+        self.dng_orientation = match normalized {
+            0 => 1,
+            90 => 6,
+            180 => 3,
+            270 => 8,
+            _ => 6,
+        };
+        info!(
+            "Camera2 NDK: orientation set to {} (DNG {})",
+            self.jpeg_orientation, self.dng_orientation
         );
         Ok(())
     }

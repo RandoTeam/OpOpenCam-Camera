@@ -122,3 +122,66 @@ After 30 s without interaction, the camera hides its controls behind a black
 UI and resets the timer. The overlay is suppressed while capturing, recording,
 switching or when the gallery is open. This is UI-only for now; stopping the
 preview stream later can save additional battery/heat.
+
+## Photo UI v2 (build-verified, device validation pending)
+
+The first visual pass is implemented in `CameraScreen.kt`:
+
+- PHOTO/VIDEO is now a stock-like segmented switch; the active segment uses the
+  orange selection accent.
+- The top bar shows the brand, the current format/lens/zoom summary and, only
+  while busy or on error, a status message. Normal operation does not show debug
+  text; the redundant photo status line was removed.
+- A subtle rule-of-thirds grid sits over the preview.
+- The bottom capture row is [gallery thumb] [86 dp shutter] [flip camera].
+  The front/rear chips were removed from the zoom row.
+- All controls use safe-area insets; the capture deck respects the gesture bar.
+- The top-bar format badge opens a bottom sheet with the working formats only
+  (12 MP JPEG, RAW 12, RAW 50, HDR 3x). 50 MP JPEG is explained as unavailable;
+  there is no dead selectable row. Selecting a format keeps the current
+  lens/zoom when that lens supports it, otherwise the app falls back to auto.
+- Zoom pills use the orange selection accent. Pinch-to-zoom stays within the
+  active lens (0.6-1x on the ultra-wide, 3-6x on the telephoto); use the pills
+  to cross a lens boundary. The slider provides continuous logical zoom;
+  releasing it after a physical-lens preset returns to logical auto zoom at the
+  requested stop.
+- Video mode shows a live REC timer.
+- A centered progress card with the current state is shown while a still is
+  being captured/saved; RAW 50 and HDR no longer look frozen.
+- Lens presets are honest: 0.6x selects the physical ultra-wide (camera 3), 3x
+  selects the physical telephoto (camera 4), and 6x is a 2x crop on that
+  telephoto. The app does **not** copy the stock low-light trick of keeping
+  3x/6x on the main sensor. If a physical lens cannot start the selected mode,
+  the app falls back to the logical camera and says so.
+
+Still to do in the next visual pass:
+
+- add a mic state to the Video chrome;
+- validate portrait/landscape layout, touch targets and haptics on the device;
+- device-test the physical-lens presets and the fallback path.
+
+### Landscape-first device pass (2026-10-24)
+
+The stock camera is landscape on this device, and the first device pass showed
+that a portrait-locked app produced sideways previews and stills. The app now
+uses `sensorLandscape` and a `TextureView` preview:
+
+- preview rotation follows the physical display; landscape fills the screen,
+  portrait fit is retained for a future portrait-crop mode;
+- JPEG/DNG orientation is computed from the sensor and display rotation and
+  applied through a new JNI setter;
+- landscape controls: gallery/shutter/flip on the left, zoom stops on the
+  right, PHOTO/VIDEO at the bottom, format badge at the top right.
+
+Device-validated:
+
+- 3x opens the physical telephoto (camera 4), 6x applies a 2x crop on it;
+- 0.6x opens the physical ultra-wide (camera 3), 1x returns to logical 0;
+- 3x, 6x and 0.6x JPEGs are upright (orientation 3 in landscape at rotation 270);
+- RAW 50 DNG is 8192x6144, orientation 3, and renders upright;
+- HDR 3x output is 4096x3072 and upright after orientation-aware pixel rotation;
+- the format sheet, saving progress card and gallery thumbnail work.
+
+Pending: front camera, video orientation, pinch on a physical two-finger
+gesture, portrait crop, and a final visual pass on the thumbnail/preview
+letterboxing.
