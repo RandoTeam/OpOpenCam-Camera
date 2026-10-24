@@ -11,6 +11,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -46,14 +47,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -61,6 +72,9 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 private val Accent = Color(0xFFFF6A00)
+
+/** Idle time before the camera chrome is replaced by the standby screen. */
+private const val STANDBY_TIMEOUT_MS = 30_000L
 
 private const val MODE_JPEG12 = 0
 private const val MODE_JPEG50 = 1
@@ -95,6 +109,7 @@ private fun cameraLabel(cameraId: Int): String = when (cameraId) {
 @Composable
 fun CameraScreen() {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
 
     var hasCamera by remember {
@@ -115,6 +130,11 @@ fun CameraScreen() {
     var videoBusy by remember { mutableStateOf(false) }
     var switching by remember { mutableStateOf(false) }
     var showGallery by remember { mutableStateOf(false) }
+    var standby by remember { mutableStateOf(false) }
+    var lastInteraction by remember { mutableStateOf(0L) }
+    var resumed by remember {
+        mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
+    }
     var galleryItems by remember { mutableStateOf<List<GalleryItem>>(emptyList()) }
     var recorder by remember { mutableStateOf<VideoRecorder?>(null) }
     var audioGranted by remember {
@@ -126,6 +146,45 @@ fun CameraScreen() {
 
     val cameraIdState = rememberUpdatedState(cameraId)
     val modeState = rememberUpdatedState(captureMode)
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> {
+                    resumed = true
+                    lastInteraction++
+                }
+                Lifecycle.Event.ON_PAUSE,
+                Lifecycle.Event.ON_STOP -> {
+                    resumed = false
+                    standby = false
+                }
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // UI-only standby: hide the chrome, keep the SurfaceView and session alive.
+    // Like the stock screen, a black idle screen also saves panel burn-in,
+    // battery and heat.
+    LaunchedEffect(
+        lastInteraction,
+        capturing,
+        recording,
+        videoBusy,
+        switching,
+        showGallery,
+        resumed,
+    ) {
+        if (!resumed || capturing || recording || videoBusy || switching || showGallery) {
+            standby = false
+            return@LaunchedEffect
+        }
+        delay(STANDBY_TIMEOUT_MS)
+        standby = true
+    }
 
     // Coalesce slider movement into ~50 Hz native zoom requests; never call JNI
     // from the main thread.
@@ -356,6 +415,18 @@ fun CameraScreen() {
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
+            // Observe pointer downs in the initial pass without consuming them:
+            // every control keeps working and any touch restarts the idle timer.
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        if (event.type == PointerEventType.Press) {
+                            lastInteraction++
+                        }
+                    }
+                }
+            }
     ) {
         AndroidView(
             factory = { surfaceView },
@@ -586,6 +657,68 @@ fun CameraScreen() {
 
         if (showGallery) {
             GalleryOverlay(context) { showGallery = false }
+        }
+
+        if (standby && !showGallery && !capturing && !recording && !videoBusy && !switching && resumed) {
+            StandbyOverlay {
+                standby = false
+                lastInteraction++
+            }
+        }
+    }
+}
+
+/**
+ * Full-screen idle screen inspired by the stock camera's "tap to preview".
+ *
+ * UI-only: the preview SurfaceView stays alive underneath, so waking does not
+ * touch or restart the camera session.
+ */
+@Composable
+private fun StandbyOverlay(onWake: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .clickable(onClick = onWake),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Canvas(Modifier.size(64.dp)) {
+                val ink = Color.White.copy(alpha = 0.85f)
+                val stroke = Stroke(width = 2.dp.toPx())
+                drawRoundRect(
+                    color = ink,
+                    topLeft = Offset(size.width * 0.08f, size.height * 0.30f),
+                    size = Size(size.width * 0.84f, size.height * 0.50f),
+                    cornerRadius = CornerRadius(8.dp.toPx()),
+                    style = stroke,
+                )
+                drawRoundRect(
+                    color = ink,
+                    topLeft = Offset(size.width * 0.33f, size.height * 0.20f),
+                    size = Size(size.width * 0.22f, size.height * 0.12f),
+                    cornerRadius = CornerRadius(2.dp.toPx()),
+                    style = stroke,
+                )
+                drawCircle(
+                    color = ink,
+                    radius = size.minDimension * 0.15f,
+                    center = Offset(size.width * 0.5f, size.height * 0.55f),
+                    style = stroke,
+                )
+                drawCircle(
+                    color = ink,
+                    radius = size.minDimension * 0.02f,
+                    center = Offset(size.width * 0.82f, size.height * 0.38f),
+                )
+            }
+            Spacer(Modifier.height(18.dp))
+            Text(
+                text = "Tap for preview",
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 14.sp,
+            )
         }
     }
 }

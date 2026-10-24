@@ -114,3 +114,11 @@ sheet footnote with a reason.
 - No 50 MP/25 MP/4K120/front-4K/HDR claim without a real file.
 - Photo/Video mode switch is blocked while capturing/recording.
 - Test every format at 0.6/1/2/3/6 and on each available lens.
+
+## Standby / idle screen (implemented)
+
+After 30 s without interaction, the camera hides its controls behind a black
+"Tap for preview" overlay. The preview session stays alive; tapping wakes the
+UI and resets the timer. The overlay is suppressed while capturing, recording,
+switching or when the gallery is open. This is UI-only for now; stopping the
+preview stream later can save additional battery/heat.
