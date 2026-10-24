@@ -15,6 +15,13 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Landscape-first camera UI (`sensorLandscape`) with a rotated `TextureView`
+  preview and left/right control rails, matching the stock camera orientation.
+- Orientation-aware JPEG/DNG capture: sensor/display rotation is applied via
+  `nativeSetJpegOrientation`; landscape stills use orientation 3 (180 degrees)
+  and RAW 50 DNGs carry orientation 3.
+- Device-validated physical lens presets: 3x tele (camera 4), 6x tele crop, 0.6x
+  ultra-wide (camera 3), 1x logical; separate JPEG/RAW captures are upright.
 - Photo UI v2: stock-like PHOTO/VIDEO segmented switch, orange selection accent,
   viewfinder grid, safe-area insets, and a capture row with gallery thumb,
   centered shutter and flip-camera button.

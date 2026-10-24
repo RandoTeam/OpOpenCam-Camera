@@ -159,3 +159,28 @@ Still to do in the next visual pass:
 - add a mic state to the Video chrome;
 - validate portrait/landscape layout, touch targets and haptics on the device;
 - device-test the physical-lens presets and the fallback path.
+
+### Landscape-first device pass (2026-10-24)
+
+The stock camera is landscape on this device, and the first device pass showed
+that a portrait-locked app produced sideways previews and stills. The app now
+uses `sensorLandscape` and a `TextureView` preview:
+
+- preview rotation follows the physical display; landscape fills the screen,
+  portrait fit is retained for a future portrait-crop mode;
+- JPEG/DNG orientation is computed from the sensor and display rotation and
+  applied through a new JNI setter;
+- landscape controls: gallery/shutter/flip on the left, zoom stops on the
+  right, PHOTO/VIDEO at the bottom, format badge at the top right.
+
+Device-validated:
+
+- 3x opens the physical telephoto (camera 4), 6x applies a 2x crop on it;
+- 0.6x opens the physical ultra-wide (camera 3), 1x returns to logical 0;
+- 3x, 6x and 0.6x JPEGs are upright (orientation 3 in landscape at rotation 270);
+- RAW 50 DNG is 8192x6144, orientation 3, and renders upright;
+- the format sheet, saving progress card and gallery thumbnail work.
+
+Pending: front camera, video orientation, pinch on a physical two-finger
+gesture, portrait crop, and a final visual pass on the thumbnail/preview
+letterboxing.

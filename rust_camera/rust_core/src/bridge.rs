@@ -274,6 +274,26 @@ pub extern "system" fn Java_com_opopencam_camera_NativeBridge_nativeSetZoom(
     }
 }
 
+/// Updates the JPEG/DNG orientation for the next still capture.
+#[no_mangle]
+pub extern "system" fn Java_com_opopencam_camera_NativeBridge_nativeSetJpegOrientation(
+    _env: JNIEnv,
+    _this: JObject,
+    degrees: jint,
+) -> jboolean {
+    let mut guard = engine_lock();
+    match guard.as_mut() {
+        Some(engine) => match engine.set_orientation(degrees) {
+            Ok(()) => JNI_TRUE,
+            Err(e) => {
+                error!("nativeSetJpegOrientation failed: {}", e);
+                JNI_FALSE
+            }
+        },
+        None => JNI_FALSE,
+    }
+}
+
 /// Returns the mode actually active after any HAL fallback, or -1 without a session.
 #[no_mangle]
 pub extern "system" fn Java_com_opopencam_camera_NativeBridge_nativeGetActiveMode(

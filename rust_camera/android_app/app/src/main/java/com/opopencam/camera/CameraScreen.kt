@@ -1,11 +1,14 @@
 package com.opopencam.camera
 
 import android.Manifest
+import android.graphics.Matrix
+import android.graphics.RectF
+import android.graphics.SurfaceTexture
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.os.Environment
 import android.view.Surface
-import android.view.SurfaceHolder
-import android.view.SurfaceView
+import android.view.TextureView
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,6 +26,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -35,8 +39,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -61,6 +63,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -117,6 +121,8 @@ private fun cameraLabel(cameraId: Int): String = when (cameraId) {
 fun CameraScreen() {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val configuration = LocalConfiguration.current
+    val landscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val haptics = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
 
@@ -244,11 +250,7 @@ fun CameraScreen() {
         galleryItems = withContext(Dispatchers.IO) { listGalleryItems(context) }
     }
 
-    val surfaceView = remember {
-        SurfaceView(context).apply {
-            holder.setFixedSize(1440, 1080)
-        }
-    }
+    val textureView = remember { TextureView(context) }
 
     fun describeStatus(requestedCamera: Int, requestedMode: Int, ok: Boolean) {
         status = when {
@@ -421,38 +423,103 @@ fun CameraScreen() {
         }
     }
 
-    DisposableEffect(surfaceView, hasCamera) {
+    fun capturePhoto() {
+        if (capturing || switching) return
+        capturing = true
+        status = if (captureMode == MODE_HDR3) {
+            "Processing HDR\u2026"
+        } else if (captureMode == MODE_RAW50) {
+            "Saving RAW 50\u2026"
+        } else {
+            "Capturing\u2026"
+        }
+        scope.launch {
+            // nativeCapturePhoto blocks until the buffer is written; HDR can
+            // take several seconds.
+            val result = withContext(Dispatchers.IO) {
+                val dir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+                    ?: context.filesDir
+                dir.mkdirs()
+                val effectiveMode = NativeBridge.nativeGetActiveMode()
+                    .let { if (it >= 0) it else captureMode }
+                val extension = if (effectiveMode == MODE_RAW12 || effectiveMode == MODE_RAW50) {
+                    "dng"
+                } else {
+                    "jpg"
+                }
+                val file = File(dir, "IMG_${System.currentTimeMillis()}.$extension")
+                val displayRotation = context.display?.rotation ?: Surface.ROTATION_0
+                val sensorOrientation = if (cameraId == 1) 270 else 90
+                val jpegOrientation = ((sensorOrientation - displayRotation * 90) % 360 + 360) % 360
+                NativeBridge.nativeSetJpegOrientation(jpegOrientation)
+                val ok = NativeBridge.nativeCapturePhoto(file.absolutePath)
+                when {
+                    ok -> {
+                        val uri = MediaStoreSaver.publishImage(context, file)
+                        if (uri != null) {
+                            "Saved ${file.name} \u00b7 Gallery"
+                        } else {
+                            "Saved ${file.name} \u00b7 not indexed"
+                        }
+                    }
+                    effectiveMode == MODE_JPEG50 -> "50 MP JPEG unavailable \u2014 use RAW 50"
+                    else -> "Capture failed - see logcat"
+                }
+            }
+            galleryItems = withContext(Dispatchers.IO) { listGalleryItems(context) }
+            status = result
+            capturing = false
+            Toast.makeText(context, result, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun onShutter() {
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        if (videoMode) {
+            if (recording) endVideo() else beginVideo()
+        } else {
+            capturePhoto()
+        }
+    }
+
+    DisposableEffect(textureView, hasCamera) {
         if (!hasCamera) {
             return@DisposableEffect onDispose { }
         }
 
+        var previewSurface: Surface? = null
         var started = false
-        val startIfSized = {
-            val holder = surfaceView.holder
-            val frame = holder.surfaceFrame
-            if (!started && holder.surface.isValid && frame.width() > 0 && frame.height() > 0) {
-                started = true
-                currentSurface = holder.surface
-                val requestedCamera = cameraIdState.value
-                val requestedMode = modeState.value
-                val ok = NativeBridge.nativeStartPreview(holder.surface, requestedCamera, requestedMode)
-                activeMode = NativeBridge.nativeGetActiveMode()
-                describeStatus(requestedCamera, requestedMode, ok)
+        val startIfReady = {
+            if (!started && textureView.isAvailable) {
+                val surfaceTexture = textureView.surfaceTexture
+                if (surfaceTexture != null) {
+                    surfaceTexture.setDefaultBufferSize(1440, 1080)
+                    val surface = Surface(surfaceTexture)
+                    previewSurface = surface
+                    currentSurface = surface
+                    val requestedCamera = cameraIdState.value
+                    val requestedMode = modeState.value
+                    val ok = NativeBridge.nativeStartPreview(surface, requestedCamera, requestedMode)
+                    activeMode = NativeBridge.nativeGetActiveMode()
+                    describeStatus(requestedCamera, requestedMode, ok)
+                    started = true
+                    textureView.post {
+                        configurePreviewTransform(textureView, 1440, 1080)
+                    }
+                }
             }
         }
 
-        val callback = object : SurfaceHolder.Callback {
-            override fun surfaceCreated(holder: SurfaceHolder) {
-                // The buffer geometry is final only after surfaceChanged.
-                holder.setFixedSize(1440, 1080)
-                surfaceView.post { startIfSized() }
+        val listener = object : TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(st: SurfaceTexture, width: Int, height: Int) {
+                startIfReady()
             }
 
-            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-                surfaceView.post { startIfSized() }
+            override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, width: Int, height: Int) {
+                configurePreviewTransform(textureView, 1440, 1080)
             }
 
-            override fun surfaceDestroyed(holder: SurfaceHolder) {
+            override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
                 started = false
                 if (recording) {
                     recorder?.abort()
@@ -462,21 +529,29 @@ fun CameraScreen() {
                 }
                 currentSurface = null
                 NativeBridge.nativeStopPreview()
+                previewSurface?.release()
+                previewSurface = null
+                return false
             }
+
+            override fun onSurfaceTextureUpdated(st: SurfaceTexture) = Unit
         }
 
-        surfaceView.holder.addCallback(callback)
-        surfaceView.post { startIfSized() }
+        textureView.surfaceTextureListener = listener
+        if (textureView.isAvailable) startIfReady()
 
         onDispose {
-            surfaceView.holder.removeCallback(callback)
+            textureView.surfaceTextureListener = null
             if (recording) {
                 recorder?.abort()
                 recorder = null
                 recording = false
                 videoBusy = false
             }
+            currentSurface = null
             NativeBridge.nativeStopPreview()
+            previewSurface?.release()
+            previewSurface = null
         }
     }
 
@@ -498,11 +573,14 @@ fun CameraScreen() {
             }
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(4f / 3f)
-                .align(Alignment.Center)
-                .pointerInput(cameraId) {
+            modifier = (if (landscape) {
+                Modifier.fillMaxSize()
+            } else {
+                Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(3f / 4f)
+                    .align(Alignment.Center)
+            }).pointerInput(cameraId) {
                     detectTransformGestures { _, _, zoomChange, _ ->
                         if (!capturing && !videoBusy && !switching && !recording) {
                             // Keep the pinch within the active lens; use the
@@ -522,8 +600,12 @@ fun CameraScreen() {
                 }
         ) {
             AndroidView(
-                factory = { surfaceView },
-                modifier = Modifier.fillMaxSize()
+                factory = { textureView },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .onSizeChanged {
+                        configurePreviewTransform(textureView, 1440, 1080)
+                    }
             )
             Canvas(Modifier.matchParentSize()) {
                 val gridColor = Color.White.copy(alpha = 0.07f)
@@ -540,6 +622,11 @@ fun CameraScreen() {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color.Black.copy(alpha = 0.55f), Color.Transparent)
+                    )
+                )
                 .statusBarsPadding()
                 .padding(horizontal = 20.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -581,21 +668,40 @@ fun CameraScreen() {
             }
         }
 
+        if (!landscape) {
         Column(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color.Transparent,
-                            Color.Black.copy(alpha = 0.78f),
-                            Color.Black.copy(alpha = 0.96f)
+            modifier = if (landscape) {
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .width(280.dp)
+                    .fillMaxHeight()
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.72f),
+                                Color.Black.copy(alpha = 0.94f)
+                            )
                         )
                     )
-                )
-                .navigationBarsPadding()
-                .padding(start = 16.dp, end = 16.dp, top = 34.dp, bottom = 14.dp),
+                    .navigationBarsPadding()
+                    .padding(start = 10.dp, end = 12.dp, top = 84.dp, bottom = 12.dp)
+            } else {
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.Black.copy(alpha = 0.20f),
+                                Color.Black.copy(alpha = 0.78f),
+                                Color.Black.copy(alpha = 0.96f)
+                            )
+                        )
+                    )
+                    .navigationBarsPadding()
+                    .padding(start = 16.dp, end = 16.dp, top = 34.dp, bottom = 14.dp)
+            },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             ModeSegment(videoMode) { isVideo ->
@@ -624,41 +730,16 @@ fun CameraScreen() {
                 Spacer(Modifier.height(10.dp))
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
                 SettingChip("0.6", zoom == 0.6f) { setZoomPreset(0.6f) }
                 SettingChip("1\u00d7", zoom == 1f) { setZoomPreset(1f) }
                 SettingChip("2\u00d7", zoom == 2f) { setZoomPreset(2f) }
                 SettingChip("3\u00d7", zoom == 3f) { setZoomPreset(3f) }
                 SettingChip("6\u00d7", zoom == 6f) { setZoomPreset(6f) }
             }
-
-            Slider(
-                value = zoom,
-                onValueChange = {
-                    zoom = it
-                    if (cameraId == 0) sensorZoom = it
-                },
-                onValueChangeFinished = {
-                    if (cameraId != 0) {
-                        restart(0, captureMode, zoom, zoom)
-                    } else {
-                        sensorZoom = zoom
-                        status = "%.1f\u00d7 \u00b7 auto lens".format(zoom)
-                    }
-                },
-                valueRange = 0.6f..6f,
-                enabled = !capturing && !videoBusy && !switching,
-                colors = SliderDefaults.colors(
-                    thumbColor = Accent,
-                    activeTrackColor = Accent,
-                    inactiveTrackColor = Color.White.copy(alpha = 0.22f)
-                ),
-                modifier = Modifier
-                    .width(300.dp)
-                    .height(32.dp)
-            )
-
-            Spacer(Modifier.height(6.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -670,86 +751,14 @@ fun CameraScreen() {
                     lastInteraction++
                 }
 
-                val shutterScale by animateFloatAsState(
-                    targetValue = if (capturing) 0.9f else 1f,
-                    animationSpec = spring(),
-                    label = "shutterScale"
+                ShutterButton(
+                    capturing = capturing,
+                    recording = recording,
+                    videoBusy = videoBusy,
+                    videoMode = videoMode,
+                    enabled = if (videoMode) !videoBusy else !capturing && !switching,
+                    onClick = { onShutter() }
                 )
-
-                Box(
-                    modifier = Modifier
-                        .size(86.dp)
-                        .scale(shutterScale)
-                        .clip(CircleShape)
-                        .border(4.dp, Color.White, CircleShape)
-                        .clickable(enabled = if (videoMode) !videoBusy else !capturing && !switching) {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            if (videoMode) {
-                                if (recording) endVideo() else beginVideo()
-                                return@clickable
-                            }
-                            if (capturing) return@clickable
-                            capturing = true
-                            status = if (captureMode == MODE_HDR3) {
-                                "Processing HDR\u2026"
-                            } else if (captureMode == MODE_RAW50) {
-                                "Saving RAW 50\u2026"
-                            } else {
-                                "Capturing\u2026"
-                            }
-                            scope.launch {
-                                // nativeCapturePhoto blocks until the buffer is written;
-                                // HDR can take several seconds.
-                                val result = withContext(Dispatchers.IO) {
-                                    val dir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
-                                        ?: context.filesDir
-                                    dir.mkdirs()
-                                    val effectiveMode = NativeBridge.nativeGetActiveMode()
-                                        .let { if (it >= 0) it else captureMode }
-                                    val extension = if (effectiveMode == MODE_RAW12 || effectiveMode == MODE_RAW50) {
-                                        "dng"
-                                    } else {
-                                        "jpg"
-                                    }
-                                    val file = File(dir, "IMG_${System.currentTimeMillis()}.$extension")
-                                    val ok = NativeBridge.nativeCapturePhoto(file.absolutePath)
-                                    when {
-                                        ok -> {
-                                            val uri = MediaStoreSaver.publishImage(context, file)
-                                            if (uri != null) {
-                                                "Saved ${file.name} \u00b7 Gallery"
-                                            } else {
-                                                "Saved ${file.name} \u00b7 not indexed"
-                                            }
-                                        }
-                                        effectiveMode == MODE_JPEG50 -> "50 MP JPEG unavailable \u2014 use RAW 50"
-                                        else -> "Capture failed - see logcat"
-                                    }
-                                }
-                                galleryItems = withContext(Dispatchers.IO) { listGalleryItems(context) }
-                                status = result
-                                capturing = false
-                                Toast.makeText(context, result, Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (videoMode) {
-                        Box(
-                            modifier = Modifier
-                                .size(if (recording) 34.dp else 58.dp)
-                                .clip(if (recording) RoundedCornerShape(6.dp) else CircleShape)
-                                .background(if (videoBusy) Color(0xFF888888) else Color(0xFFE53935))
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(if (capturing) 54.dp else 66.dp)
-                                .clip(CircleShape)
-                                .background(if (capturing) Color(0xFF888888) else Accent)
-                        )
-                    }
-                }
 
                 FlipCameraButton(
                     enabled = !recording && !videoBusy && !capturing && !switching
@@ -770,6 +779,86 @@ fun CameraScreen() {
                     color = if (recording) Color(0xFFFF5252) else Color.White.copy(alpha = 0.55f),
                     fontSize = 10.sp
                 )
+            }
+        }
+
+        }
+
+        if (landscape) {
+            // Stock-like landscape rails: capture controls on the left,
+            // zoom stops on the right, mode switch at the bottom.
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 14.dp)
+                    .width(96.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                LatestMediaThumbnail(context, galleryItems.firstOrNull()) {
+                    showGallery = true
+                    lastInteraction++
+                }
+                ShutterButton(
+                    capturing = capturing,
+                    recording = recording,
+                    videoBusy = videoBusy,
+                    videoMode = videoMode,
+                    enabled = if (videoMode) !videoBusy else !capturing && !switching,
+                    onClick = { onShutter() }
+                )
+                FlipCameraButton(
+                    enabled = !recording && !videoBusy && !capturing && !switching
+                ) {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    if (cameraId == 1) restart(0, captureMode) else restart(1, MODE_JPEG12)
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 12.dp, top = 64.dp, bottom = 18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                SettingChip("0.6", zoom == 0.6f, compact = true) { setZoomPreset(0.6f) }
+                SettingChip("1\u00d7", zoom == 1f, compact = true) { setZoomPreset(1f) }
+                SettingChip("2\u00d7", zoom == 2f, compact = true) { setZoomPreset(2f) }
+                SettingChip("3\u00d7", zoom == 3f, compact = true) { setZoomPreset(3f) }
+                SettingChip("6\u00d7", zoom == 6f, compact = true) { setZoomPreset(6f) }
+            }
+
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                ModeSegment(videoMode) { isVideo ->
+                    if (!recording && !videoBusy) {
+                        videoMode = isVideo
+                        status = if (isVideo) {
+                            if (video4k16) "Video 4K 16:9 \u00b7 60 fps" else "Video 4K 4:3 \u00b7 30 fps"
+                        } else {
+                            "Photo mode"
+                        }
+                    }
+                }
+                if (videoMode) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = if (recording) {
+                            val spec = if (video4k16) "4K 16:9 \u00b7 60 fps" else "4K 4:3 \u00b7 30 fps"
+                            "REC ${formatDuration(recordingSeconds)} \u00b7 $spec"
+                        } else {
+                            if (video4k16) "4K 16:9 \u00b7 60 fps" else "4K 4:3 \u00b7 30 fps"
+                        },
+                        color = if (recording) Color(0xFFFF5252) else Color.White.copy(alpha = 0.55f),
+                        fontSize = 10.sp
+                    )
+                }
             }
         }
 
@@ -826,6 +915,35 @@ fun CameraScreen() {
             }
         }
     }
+}
+
+private fun configurePreviewTransform(view: TextureView, previewWidth: Int, previewHeight: Int) {
+    val viewWidth = view.width
+    val viewHeight = view.height
+    if (viewWidth == 0 || viewHeight == 0) return
+
+    val displayRotation = view.display?.rotation ?: Surface.ROTATION_0
+    // Rear sensor is mounted at 90 degrees. In portrait the buffer must be
+    // rotated; in landscape the sensor buffer is already upright.
+    val rotationDegrees = (90 - displayRotation * 90 + 360) % 360
+    val landscape = viewWidth > viewHeight
+
+    val matrix = Matrix()
+    matrix.postTranslate(-previewWidth / 2f, -previewHeight / 2f)
+    matrix.postRotate(rotationDegrees.toFloat())
+    val rotatedWidth = if (rotationDegrees % 180 == 0) previewWidth else previewHeight
+    val rotatedHeight = if (rotationDegrees % 180 == 0) previewHeight else previewWidth
+    val scale = if (landscape) {
+        // Fill the landscape screen like a camera viewfinder; the still keeps
+        // the full 4:3 sensor framing.
+        maxOf(viewWidth.toFloat() / rotatedWidth, viewHeight.toFloat() / rotatedHeight)
+    } else {
+        // Portrait: show the complete 3:4 framing without cropping.
+        minOf(viewWidth.toFloat() / rotatedWidth, viewHeight.toFloat() / rotatedHeight)
+    }
+    matrix.postScale(scale, scale)
+    matrix.postTranslate(viewWidth / 2f, viewHeight / 2f)
+    view.setTransform(matrix)
 }
 
 /**
@@ -1042,6 +1160,47 @@ private fun SegmentButton(label: String, selected: Boolean, onClick: () -> Unit)
     }
 }
 
+@Composable
+private fun ShutterButton(
+    capturing: Boolean,
+    recording: Boolean,
+    videoBusy: Boolean,
+    videoMode: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    val shutterScale by animateFloatAsState(
+        targetValue = if (capturing) 0.9f else 1f,
+        animationSpec = spring(),
+        label = "shutterScale"
+    )
+    Box(
+        modifier = Modifier
+            .size(86.dp)
+            .scale(shutterScale)
+            .clip(CircleShape)
+            .border(4.dp, Color.White, CircleShape)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        if (videoMode) {
+            Box(
+                modifier = Modifier
+                    .size(if (recording) 34.dp else 58.dp)
+                    .clip(if (recording) RoundedCornerShape(6.dp) else CircleShape)
+                    .background(if (videoBusy) Color(0xFF888888) else Color(0xFFE53935))
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(if (capturing) 54.dp else 66.dp)
+                    .clip(CircleShape)
+                    .background(if (capturing) Color(0xFF888888) else Accent)
+            )
+        }
+    }
+}
+
 /** Round flip-camera control used in the bottom capture row. */
 @Composable
 private fun FlipCameraButton(enabled: Boolean, onClick: () -> Unit) {
@@ -1063,20 +1222,28 @@ private fun FlipCameraButton(enabled: Boolean, onClick: () -> Unit) {
 
 /** Compact pill used for capture modes and lens stops. */
 @Composable
-private fun SettingChip(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun SettingChip(
+    label: String,
+    selected: Boolean,
+    compact: Boolean = false,
+    onClick: () -> Unit
+) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
             .background(if (selected) Accent else Color.White.copy(alpha = 0.10f))
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 7.dp),
+            .padding(
+                horizontal = if (compact) 10.dp else 12.dp,
+                vertical = if (compact) 4.dp else 7.dp
+            ),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
             color = if (selected) Color.Black else Color.White.copy(alpha = 0.85f),
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            fontSize = 12.sp
+            fontSize = if (compact) 11.sp else 12.sp
         )
     }
 }

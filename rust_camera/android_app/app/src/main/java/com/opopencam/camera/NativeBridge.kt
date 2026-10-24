@@ -24,6 +24,9 @@ object NativeBridge {
     external fun nativeStopPreview()
     external fun nativeCapturePhoto(path: String): Boolean
     external fun nativeSetZoom(ratio: Float): Boolean
+
+    /** Rotation the viewer must apply to the next JPEG/DNG (0/90/180/270). */
+    external fun nativeSetJpegOrientation(degrees: Int): Boolean
     external fun nativeIsRunning(): Boolean
 
     /**
