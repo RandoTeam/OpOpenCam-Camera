@@ -129,8 +129,9 @@ The first visual pass is implemented in `CameraScreen.kt`:
 
 - PHOTO/VIDEO is now a stock-like segmented switch; the active segment uses the
   orange selection accent.
-- The top bar shows the brand, the current format/lens summary and, only while
-  busy or on error, a status message. Normal operation does not show debug text.
+- The top bar shows the brand, the current format/lens/zoom summary and, only
+  while busy or on error, a status message. Normal operation does not show debug
+  text; the redundant photo status line was removed.
 - A subtle rule-of-thirds grid sits over the preview.
 - The bottom capture row is [gallery thumb] [86 dp shutter] [flip camera].
   The front/rear chips were removed from the zoom row.

@@ -552,7 +552,7 @@ fun CameraScreen() {
                     fontSize = 15.sp
                 )
                 Text(
-                    text = if (videoMode) "VIDEO" else "${modeLabel(captureMode)} \u00b7 ${cameraLabel(cameraId)}",
+                    text = if (videoMode) "VIDEO" else "${modeLabel(captureMode)} \u00b7 ${cameraLabel(cameraId)} \u00b7 ${"%.1f".format(zoom)}\u00d7",
                     color = Color.White.copy(alpha = 0.55f),
                     fontSize = 10.sp
                 )
@@ -758,18 +758,18 @@ fun CameraScreen() {
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = if (videoMode) {
-                    val spec = if (video4k16) "4K 16:9 \u00b7 60 fps" else "4K 4:3 \u00b7 30 fps"
-                    if (recording) "REC ${formatDuration(recordingSeconds)} \u00b7 $spec \u00b7 tap to stop"
-                    else "VIDEO \u00b7 $spec \u00b7 ${cameraLabel(cameraId)} \u00b7 tap to record"
-                } else {
-                    "${modeLabel(captureMode)} \u00b7 ${cameraLabel(cameraId)} \u00b7 ${"%.1f".format(zoom)}\u00d7"
-                },
-                color = if (recording) Color(0xFFFF5252) else Color.White.copy(alpha = 0.55f),
-                fontSize = 10.sp
-            )
+            if (videoMode) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = run {
+                        val spec = if (video4k16) "4K 16:9 \u00b7 60 fps" else "4K 4:3 \u00b7 30 fps"
+                        if (recording) "REC ${formatDuration(recordingSeconds)} \u00b7 $spec \u00b7 tap to stop"
+                        else "VIDEO \u00b7 $spec \u00b7 ${cameraLabel(cameraId)} \u00b7 tap to record"
+                    },
+                    color = if (recording) Color(0xFFFF5252) else Color.White.copy(alpha = 0.55f),
+                    fontSize = 10.sp
+                )
+            }
         }
 
         if (capturing && !showGallery && !showFormatSheet) {
