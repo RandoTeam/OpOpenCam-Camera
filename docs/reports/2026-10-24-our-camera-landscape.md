@@ -74,3 +74,25 @@ The camera is now usable in the stock orientation: preview and stills are
 upright, the physical lenses are selected honestly, and the format/saving UI is
 visible. The next quality work is the photo pipeline itself, not another
 orientation fix.
+
+## DNG Render JPEG action
+
+The gallery can now render a DNG to a neutral JPEG through
+`nativeRenderDngToJpeg` and the tested `raw_render` pipeline.
+
+| Test | Result |
+|---|---|
+| Source | 50 MP RAW DNG, 8192x6144, orientation 3 |
+| Output | 8192x6144 JPEG, 11,406,914 bytes |
+| Time | 9.4 s |
+| Publication | MediaStore `DCIM/OpOpenCam`, `is_pending=0` |
+| UI | spinner + disabled action while rendering; success message; back blocked until done |
+| Orientation | upright landscape (pixels rotated by the renderer) |
+
+A second test on an older portrait DNG (orientation 6) produced a 6144x8192
+portrait image with sideways content. That is the source DNG metadata, not the
+render action; the new landscape captures carry orientation 3 and render
+correctly.
+
+The neutral render is intentionally flat/dark; the next quality step is a
+gentle tone curve and calibrated white balance, not more sharpening.

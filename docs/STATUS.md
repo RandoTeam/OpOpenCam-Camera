@@ -27,7 +27,7 @@ core is accepted; 5K/6K/8K and HDR/Dolby are later workstreams.
 | DNG fallback | verified tags: 4096?3072/8192?6144, orientation 6, ColorMatrix1 SRATIONAL |
 | Front JPEG | 3280?2464, orientation 8 |
 | MediaStore | `content://media/external/images/media/303572`, `DCIM/OpOpenCam/`, `is_pending=0` |
-| In-app gallery | thumb + full-screen grid; JPEG preview; DNG/MP4 placeholders; DNG "Render JPEG" implemented, device validation pending |
+| In-app gallery | thumb + full-screen grid; JPEG preview; DNG/MP4 placeholders; DNG "Render JPEG" device-validated: 50 MP DNG -> 8192x6144 JPEG in 9.4 s, 11.4 MB, MediaStore-published |
 | Logical zoom | 0.6/1/2/3/6 JPEG captures; 0.6 ~1.1 s, 1? ~0.6 s, 3? ~1.2 s, 6? ~1.1 s |
 | RAW speed | RAW12 0.35?0.51 s; RAW50 0.66 s; HDR 3.4 s |
 | Video start/stop | VIDEO chip, record/stop, preview restored; repeat cycle works |
@@ -86,8 +86,9 @@ local and are not committed. Protocol: [lab/](lab/).
   Device-validated in landscape: 3x/6x physical tele, 0.6x ultra-wide, JPEG/RAW50
   upright, HDR 4096x3072 upright. Remaining: front/video orientation, pinch
   gesture, portrait crop and final visual polish.
-- Neutral DNG to JPEG renderer: host-tested on RAW12/RAW50; not yet integrated
-  into the gallery or calibrated for production color/tone.
+- Neutral DNG to JPEG renderer: integrated into the in-app gallery and
+  device-validated on a 50 MP DNG (9.4 s, 8192x6144). Tone/white-balance
+  calibration is still needed; the neutral output is intentionally flat.
 - HDR quality on textured static scenes and moving subjects.
 - DNG color: public build uses a generic sRGB D65 matrix; per-sensor calibration
   is not bundled.
