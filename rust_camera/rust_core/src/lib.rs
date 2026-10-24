@@ -17,4 +17,5 @@ pub mod circular_ring_buffer;
 pub mod dng_writer;
 pub mod hdr;
 pub mod motion_photo_xmp;
+pub mod raw_render;
 pub mod sensors;
