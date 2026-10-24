@@ -81,6 +81,12 @@ local and are not committed. Protocol: [lab/](lab/).
 
 ## Implemented but not fully validated
 
+- Photo UI v2 (PR #8): segmented PHOTO/VIDEO switch, format sheet, orange
+  accent, viewfinder grid, capture row with thumb/shutter/flip, pinch zoom,
+  REC timer and saving progress. Host build is green; device visual/interaction
+  validation is pending.
+- Neutral DNG to JPEG renderer: host-tested on RAW12/RAW50; not yet integrated
+  into the gallery or calibrated for production color/tone.
 - HDR quality on textured static scenes and moving subjects.
 - DNG color: public build uses a generic sRGB D65 matrix; per-sensor calibration
   is not bundled.
