@@ -6,6 +6,7 @@
 //! The camera session is process-global: only one client may own the preview
 //! surface. Every entry point serialises through `ENGINE`.
 
+use std::path::Path;
 use std::sync::Mutex;
 
 use jni::objects::{JObject, JString};
@@ -16,6 +17,7 @@ use log::{error, info};
 use crate::camera_engine::{init_logging, CameraEngine};
 use crate::capture_modes::CaptureMode;
 use crate::motion_photo_xmp::assemble_motion_photo_to_file;
+use crate::raw_render::render_dng_file;
 use crate::sensors::OnePlus13Sensor;
 
 static ENGINE: Mutex<Option<CameraEngine>> = Mutex::new(None);
@@ -376,6 +378,94 @@ pub extern "system" fn Java_com_opopencam_camera_NativeBridge_nativeAssembleMoti
         }
         Err(e) => {
             error!("nativeAssembleMotionPhoto: {}", e);
+            JNI_FALSE
+        }
+    }
+}
+
+/// Renders a 16-bit Bayer DNG to a neutral JPEG at `output_path`.
+///
+/// The raw renderer is CPU-heavy (several seconds for a 50 MP DNG) and works on
+/// plain files, so this entry point deliberately does **not** take `ENGINE`: a
+/// gallery render must not block preview, capture or the camera session. Always
+/// call it from a background thread. Returns false on invalid paths, render or
+/// write errors and logs the reason.
+#[no_mangle]
+pub extern "system" fn Java_com_opopencam_camera_NativeBridge_nativeRenderDngToJpeg(
+    mut env: JNIEnv,
+    _this: JObject,
+    input_path: JString,
+    output_path: JString,
+) -> jboolean {
+    init_logging();
+
+    let read_path = |env: &mut JNIEnv, value: &JString, label: &str| -> Option<String> {
+        if value.is_null() {
+            error!("nativeRenderDngToJpeg: {label} path is null");
+            return None;
+        }
+        let path: String = match env.get_string(value) {
+            Ok(value) => value.into(),
+            Err(e) => {
+                error!("nativeRenderDngToJpeg: invalid {label} path: {e}");
+                return None;
+            }
+        };
+        if path.trim().is_empty() {
+            error!("nativeRenderDngToJpeg: {label} path is empty");
+            return None;
+        }
+        Some(path)
+    };
+
+    let Some(input_path) = read_path(&mut env, &input_path, "input") else {
+        return JNI_FALSE;
+    };
+    let Some(output_path) = read_path(&mut env, &output_path, "output") else {
+        return JNI_FALSE;
+    };
+
+    let input = Path::new(&input_path);
+    let output = Path::new(&output_path);
+    if !input.is_file() {
+        error!("nativeRenderDngToJpeg: input is not a file: {input_path}");
+        return JNI_FALSE;
+    }
+    if output == input {
+        error!("nativeRenderDngToJpeg: input and output are the same path: {input_path}");
+        return JNI_FALSE;
+    }
+    if output.is_dir() {
+        error!("nativeRenderDngToJpeg: output is a directory: {output_path}");
+        return JNI_FALSE;
+    }
+    if let Some(parent) = output.parent() {
+        if !parent.as_os_str().is_empty() && !parent.is_dir() {
+            error!(
+                "nativeRenderDngToJpeg: output directory does not exist: {}",
+                parent.display()
+            );
+            return JNI_FALSE;
+        }
+    }
+
+    let started = std::time::Instant::now();
+    match render_dng_file(input, output) {
+        Ok(summary) => {
+            info!(
+                "nativeRenderDngToJpeg: {}x{} -> {}x{} in {:.1}s, {} bytes -> {}",
+                summary.input_width,
+                summary.input_height,
+                summary.output_width,
+                summary.output_height,
+                started.elapsed().as_secs_f32(),
+                summary.jpeg_bytes,
+                output_path
+            );
+            JNI_TRUE
+        }
+        Err(e) => {
+            error!("nativeRenderDngToJpeg: {input_path} -> {output_path}: {e}");
             JNI_FALSE
         }
     }

@@ -1332,4 +1332,32 @@ mod tests {
         assert_eq!(&jpeg[..2], &[0xFF, 0xD8]);
         assert_eq!(&jpeg[jpeg.len() - 2..], &[0xFF, 0xD9]);
     }
+
+    #[test]
+    fn render_dng_file_writes_a_jpeg_to_disk() {
+        // Covers the file-to-file path used by the gallery JNI entry point.
+        let document = TestDng::new(4, 4, vec![544; 16]);
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock should be after the epoch")
+            .as_nanos();
+        let directory = std::env::temp_dir().join(format!(
+            "opopencam-raw-render-{}-{unique}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&directory).expect("temp directory should be creatable");
+        let input = directory.join("input.dng");
+        let output = directory.join("output.jpg");
+        std::fs::write(&input, document.build()).expect("synthetic DNG should be writable");
+
+        let summary = render_dng_file(&input, &output).expect("DNG file should render");
+        let jpeg = std::fs::read(&output).expect("rendered JPEG should be readable");
+        std::fs::remove_dir_all(&directory).expect("temp directory should be removable");
+
+        assert_eq!((summary.input_width, summary.input_height), (4, 4));
+        assert_eq!((summary.output_width, summary.output_height), (4, 4));
+        assert_eq!(summary.jpeg_bytes, jpeg.len());
+        assert_eq!(&jpeg[..2], &[0xFF, 0xD8]);
+        assert_eq!(&jpeg[jpeg.len() - 2..], &[0xFF, 0xD9]);
+    }
 }
