@@ -806,7 +806,9 @@ fun CameraScreen() {
                 current = captureMode,
                 onSelect = { mode ->
                     showFormatSheet = false
-                    restart(0, mode)
+                    // Keep the current lens/zoom if it supports the new format;
+                    // restart() falls back to the logical camera if it does not.
+                    restart(cameraId, mode, sensorZoom, zoom)
                 },
                 onDismiss = { showFormatSheet = false }
             )

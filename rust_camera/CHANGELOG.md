@@ -23,6 +23,7 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Pinch-to-zoom on the preview (within the active lens), a live REC timer in
   Video mode, and a centered saving/progress card for RAW 50/HDR.
 - Top bar carries the current zoom; the redundant photo status line is gone.
+- Format selection preserves the current lens/zoom when supported.
 - Zoom presets now select real lenses: 0.6x = physical ultra-wide (camera 3),
   3x = physical telephoto (camera 4), 6x = 2x crop on the telephoto. The app does
   not copy the stock low-light behavior of keeping 3x/6x on the main sensor.

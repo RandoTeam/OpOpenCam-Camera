@@ -138,7 +138,8 @@ The first visual pass is implemented in `CameraScreen.kt`:
 - All controls use safe-area insets; the capture deck respects the gesture bar.
 - The top-bar format badge opens a bottom sheet with the working formats only
   (12 MP JPEG, RAW 12, RAW 50, HDR 3x). 50 MP JPEG is explained as unavailable;
-  there is no dead selectable row.
+  there is no dead selectable row. Selecting a format keeps the current
+  lens/zoom when that lens supports it, otherwise the app falls back to auto.
 - Zoom pills use the orange selection accent. Pinch-to-zoom stays within the
   active lens (0.6-1x on the ultra-wide, 3-6x on the telephoto); use the pills
   to cross a lens boundary. The slider provides continuous logical zoom;
