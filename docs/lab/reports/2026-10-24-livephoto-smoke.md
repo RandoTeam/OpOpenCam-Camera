@@ -30,12 +30,14 @@ at `01:16:32`. The user confirms no manual shot immediately before the run.
 This is therefore the **first automated Live Photo capture**; the file is valid
 evidence.
 
-After that sample, toggling Live Photo off/on and subsequent captures produced
-~2.5 MB stills with no MotionPhoto and no gain map (HDR off, HDR auto, and after
-a clean camera restart). The stock process still had `AudioEncoderThr`,
-`VideoEncoderThr` and `MediaCodec_loop` threads. The stock muxing path stopped
-writing motion after the toggle; a clean reset/reboot is required before
-claiming the pipeline is repeatable.
+After that sample, toggling Live Photo off/on and pulling ~2-14 s after later
+captures produced ~2.5 MB stills with no MotionPhoto and no gain map. This was
+**not** a broken muxing path. The stock app writes the JPEG first and appends the
+gain map and MP4 only when the camera preview pauses (Home or the 120 s
+`ScreenOffActivity`). The first stable size is the unfinished JPEG. With the
+pause step, every tested trigger produced a full Live Photo; no reboot or reset
+is needed. See
+[2026-10-24-livephoto-finalization.md](2026-10-24-livephoto-finalization.md).
 
 ## File structure
 
@@ -148,8 +150,10 @@ dedicated experiment.
   the preview center to recover, and re-check the foreground package.
 - Never use two system `Back` presses to leave the camera: that exits to the
   launcher. Use the UI back/close controls and verify the foreground package.
-- MediaStore `is_pending=0` is not enough: the JPEG can still be growing. Wait
-  for the on-disk size to be stable twice before pulling.
+- MediaStore `is_pending=0`, an unchanged mtime and two equal size samples are
+  still not enough: the JPEG is complete before the gain map/MP4 append. Pause
+  the preview (Home or `ScreenOffActivity`) and wait for the final size and the
+  `MotionPhoto`/`GainMap` marker before pulling.
 - A full MediaStore query is huge (15k+ rows) and can be truncated. Use a
   marker file plus `find -newer`, and MediaStore only for metadata.
 - Keep airplane mode and DND on during a run, and restore them afterwards.
@@ -157,10 +161,10 @@ dedicated experiment.
 
 ## Next
 
-1. Resolve the Live Photo muxing state: clean restart, toggle sequence, or a
-   stock-setting reset; verify with a fresh MotionPhoto file.
-2. Fix the runner: marker + `find -newer`, size stability, no system Back,
-   ScreenOffActivity recovery, keepalive.
+1. ~~Resolve the Live Photo muxing state~~ **Resolved:** deferred append; pause
+   the preview and wait for the final file. See the finalization report.
+2. Use the marker + `find -newer` + pause + final-marker protocol; no system
+   Back; recover `ScreenOffActivity` with an orientation-aware tap.
 3. A/B Live Photo off/on and inspect the encoder before/after the shutter.
 4. Measure the gallery display with and without the gain map, in airplane mode
    and online.

@@ -52,10 +52,26 @@ normal still feature, not a Live Photo feature. Details and automation lessons:
 **Provenance:** the 14.2 MB sample's device timestamp is `01:16:18`; the host
 clock is ~15 s ahead, so it matches the host shutter at `01:16:32`. The user
 confirms no manual shot immediately before. This is the first automated Live
-Photo capture. Later captures after toggling Live Photo off/on produced ~2.5 MB
-stills without MotionPhoto, even after a clean restart, while the stock encoder
-threads were present. The muxing path stopped; a clean reset/reboot is needed to
-make it repeatable.
+Photo capture.
+
+## 1b. Finalization (resolved 2026-10-24)
+
+Later captures initially looked like ~2.5 MB stills because they were pulled
+before the Motion Photo was appended. The stock app writes the JPEG first, then
+appends the gain map and MP4 when the camera preview pauses. Examples:
+
+- `IMG20261024041703.jpg`: 2,211,045 bytes at 1.87 s -> 13,357,174 bytes final;
+- `IMG20261024042027.jpg`: 2,340,732 bytes at 14.39 s -> 13,683,830 bytes after
+  the stock `ScreenOffActivity` opened at 04:22:27.677 (120 s idle);
+- `IMG20261024042508.jpg`: 2,256,409 bytes at 1.42 s -> 13,059,994 bytes within
+  1.9 s of pressing Home.
+
+All earlier trigger variants (tap, 100 ms, 250 ms, no-focus, volume) produced a
+Live Photo once finalization was allowed. The 250 ms run had Live Photo off and
+correctly produced a 5.5 MB gain-map-only still. No reboot or reset is required.
+The automation protocol is: capture, pause the preview (Home or wait for
+`ScreenOffActivity`), poll size and `MotionPhoto`, then pull. Full evidence:
+[reports/2026-10-24-livephoto-finalization.md](reports/2026-10-24-livephoto-finalization.md).
 
 ## 2. Hypotheses to test
 
@@ -63,7 +79,7 @@ make it repeatable.
 |---|---|---|---|
 | H1 | Video is encoded continuously during preview into a ring buffer | encoder active before shutter; steady codec session in `media.metrics`; buffer/memory growth; pre-roll present on first shot | encoder starts only at shutter; first shot has no pre-roll |
 | H2 | Audio is recorded continuously into a matching ring buffer | audio track active before shutter; pre-roll audio present | audio starts at shutter |
-| H3 | At shutter, the app writes the JPEG and muxes pre+post into an MP4, then embeds it in the JPEG | file appears after mux; mdat offset; XMP/MPF fields; write burst | two separate files, no embedding |
+| H3 | At shutter, the app writes the JPEG; when the preview pauses it muxes pre+post into an MP4 and appends it with the gain map and XMP | JPEG appears first, then a size jump after Home/`ScreenOffActivity`; XMP container; embedded MP4 | MP4 never appended, or separate sidecar only |
 | H4 | The cover frame is enhanced separately by the RRDBNet/QNN path | cover differs from the JPEG still; QNN/cover logs; NPU-like latency | cover equals the still; no model activity |
 | H5 | Pre/post is exactly 3 s + 3 s | scene clock measurement | different duration |
 | H6 | The clip is 4:3 and matches the still FOV | ffprobe dimensions and frame compare | cropped/scaled mismatch |
@@ -133,9 +149,12 @@ any sidecars, and record `media.metrics` + logcat.
   frames, duration, latency.
 - logcat tags: `MediaCodec`, `CCodec`, `C2`, `MPEG4Writer`, `MediaMuxer`,
   `MotionPhoto`, `LivePhoto`, `XMP`, `QNN`, `HTP`, `Cover`.
-- File write timing: poll the directory every 100 ms; record when the file
-  appears and when its size stabilises.
-- Pull the result and run the forensics below.
+- File write timing: poll the directory every 100-300 ms; record when the file
+  appears, the first stable size, and the later size jump after the preview is
+  paused (Home or `ScreenOffActivity`).
+- Pull only after the pause and the `MotionPhoto`/`GainMap` marker; the first
+  stable size is an unfinished JPEG.
+- Run the forensics below.
 
 ## 6. File forensics
 
@@ -233,8 +252,10 @@ Before UI work, prove the session shape in `SelfTestActivity`:
 4. Start an audio record ring buffer at 48 kHz stereo.
 5. On shutter: capture JPEG, stop after 3 s, mux pre+post, embed the MP4 and
    XMP/MPF.
-6. Verify the result in the stock gallery and in a neutral player.
-7. Only then expose the Live Photo toggle in the product UI.
+6. Finalize synchronously, or expose an explicit pending state. Stock defers
+   the append until the preview pauses; we should not copy that UX.
+7. Verify the result in the stock gallery and in a neutral player.
+8. Only then expose the Live Photo toggle in the product UI.
 
 Open questions for our engine:
 

@@ -48,7 +48,10 @@ core is accepted; 5K/6K/8K and HDR/Dolby are later workstreams.
 | 10-bit P010 | Supported by HAL; video implementation planned |
 | Dolby Vision | Not portable without licence/vendor encoder; HDR10/HLG alternative |
 | AI gallery | Vendor models; clean/open alternatives only in research |
-| Stock Live Photo sample | First automated capture: 3.18 s clip; 1.666 s pre-roll / 1.513 s post-roll; 1728x1296 HEVC 30 fps; mono AAC 48 kHz; embedded MP4 + Ultra HDR gain map. Not 3+3. Gain map also present with Live Photo off (5.5 MB still). After toggling off/on, muxing stopped producing motion; clean reset/reboot pending |
+| Stock Live Photo sample | First automated capture: 3.18 s clip; 1.666 s pre-roll / 1.513 s post-roll; 1728x1296 HEVC 30 fps; mono AAC 48 kHz; embedded MP4 + Ultra HDR gain map. Not 3+3. Gain map also present with Live Photo off (5.5 MB still). Finalization resolved: JPEG is written first, gain map/MP4 are appended when the preview pauses (Home or 120 s `ScreenOffActivity`); all triggers reproduce, no reboot needed |
+| Stock HDR / gain map | HDR off and auto both embed a 2048x1536 gain map; `GainMapMax` ~1.74 stops in the one-lamp scene (1.95 in an earlier still). HDR auto uses a larger primary JPEG; the gain map is not an HDR-on-only feature |
+| Stock zoom, low light | 3x/6x are digital crops of the main sensor (6.06 mm, f/1.6, 73/146 mm eq), not the tele; 0.6x uses the 2.30 mm f/2.0 ultra-wide. All 4096x3072 |
+| Stock Master mode | RAW: 30.5 MB DNG, 4096x3072, 10-bit/16-bit container, CFA RGGB; JPEG: 3.08 MB, 4096x3072, no gain map. Master RAW is 12 MP, not 50 MP |
 
 ## Stock camera lab (reconnaissance, 2026-10-23)
 
@@ -94,7 +97,7 @@ local and are not committed. Protocol: [lab/](lab/).
 | RAW 25 probe rejected | 5888×4416 RAW_SENSOR session fails with `createCaptureSession -10009` on logical and physical main; no file. Alternate vendor/pixel-mode paths still pending. |
 | 8K/6K video not exposed | Normal Camera2 sessions for 7680×4320, 6016×4512 and their 60 fps variants were rejected; normal stream configs cap at 4096×3072. Stock vendor config indicates 8K**30** via an offline/vendor path, not 8K60; that path is not yet attempted. Dolby encoder exists (`c2.qti.dv.encoder`); HDR/Dolby path still unproven. |
 | Photo quality baseline pending | Same-scene comparison against stock/LMC and HDR tone/colour tuning not yet done. |
-| No Live Photo yet | Motion Photo container exists; video/audio ring buffer not implemented. |
+| No Live Photo yet | Our engine still lacks the Motion Photo writer; the stock container/format and deferred-finalization behavior are now understood. |
 | 4K 4:3 video verified | 4096×3072 HEVC 30 fps + AAC stereo; A/V tail can be ~0.2–0.5 s longer than video, sync trimming is next. |
 | Video modes not yet | 1080p 120, 720p 60, 10-bit/HDR, EIS; 8K30 vendor/offline path unproven; 8K60 is not a stock OnePlus capability. |
 | No Pro/portrait/macro yet | Manual controls, overlays, bokeh and focus stacking are backlogged. |

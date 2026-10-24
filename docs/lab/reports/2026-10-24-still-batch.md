@@ -45,21 +45,63 @@ size change.
 The submenu's HDR tile cycles **Auto -> Off -> Auto**; no separate manual On was
 observed.
 
-| Case | File bytes | Dimensions | Gain map | MotionPhoto |
+**Correction (2026-10-24):** the first HDR rows below were pulled before the
+stock app appended the gain map/motion. The 2.5 MB values are unfinished
+JPEGs, not proof that HDR off lacks a gain map. Re-measured with the pause
+protocol from
+[2026-10-24-livephoto-finalization.md](2026-10-24-livephoto-finalization.md):
+
+| Case | Final bytes | Primary | Gain map | GainMapMax | MotionPhoto |
+|---|---|---|---|---|---|
+| HDR off, 1x | 4,113,066 | 3,680,112 | 432,954 | 1.74475 | no |
+| HDR auto, 1x | 5,192,175 | 4,771,123 | 421,052 | 1.74009 | no |
+
+Both cases contain a real 2048x1536 gain map. The gain-map maximum is nearly
+identical (~1.74 stops); HDR auto uses a larger primary JPEG and slightly
+different tone/compression. The earlier Live-Photo-off still with
+`GainMapMax=1.94892` confirms that the gain map is scene/decision dependent, not
+a fixed HDR-off/on property. The gain map is a normal Ultra HDR still feature,
+not a Live Photo feature.
+
+The older rows (2.5 MB, no gain map) are retained only as examples of the
+premature-pull bug: file size was stable, `is_pending=0`, and mtime unchanged,
+yet the gain map had not been appended. Do not use them for HDR conclusions.
+
+## Zoom stops
+
+Captured in the one-lamp scene with Live Photo left on. The 3x/6x/0.6x files
+were finalized with the pause protocol; the 2x file is a plain 1.8 MB SDR still
+with no motion/gain map.
+
+| Stop | File bytes | Dimensions | EXIF focal | 35 mm eq | Aperture | Lens | Motion / gain |
+|---|---|---|---|---|---|---|---|
+| 2x | 1,811,332 | 4096x3072 | 6.06 mm | 48 mm | f/1.6 | main | no / no |
+| 3x | 11,848,558 | 4096x3072 | 6.06 mm | 73 mm | f/1.6 | main | yes / yes |
+| 6x | 11,219,337 | 4096x3072 | 6.06 mm | 146 mm | f/1.6 | main | yes / yes |
+| 0.6x | 11,704,584 | 4096x3072 | 2.30 mm | 15 mm | f/2.0 | ultra-wide | yes / yes |
+
+At this light level, 3x and 6x are **digital crops of the main sensor**
+(6.06 mm, f/1.6, 23 mm lens model), not the 3x tele sensor. The 0.6x stop uses
+the ultra-wide (2.30 mm, f/2.0, 15 mm eq). The stock app therefore prefers the
+main sensor at 3x/6x in low light; a brighter scene is needed to confirm when it
+switches to the tele. All stops still write 4096x3072.
+
+## Master mode
+
+`МАСТЕР` is reachable from Photo with a downward single-finger swipe on the mode
+strip (Photo -> Master); an upward swipe from Photo goes to `ЕЩЕ` (More). The
+right rail has `raw_control` (`Форматjpg` / `Форматraw`), global EV, Live Photo
+and the submenu.
+
+| Format | File | Bytes | Dimensions | Notes |
 |---|---|---|---|---|
-| HDR off, first capture | 2,504,234 | 4096x3072 | no | no |
-| HDR off, after 5 s wait | 2,528,323 | 4096x3072 | no | no |
-| HDR auto | 2,474,285 | 4096x3072 | no | no |
+| RAW | `IMG20261024043149.dng` | 30,516,142 | 4096x3072 | 10-bit stored in 16-bit, white 1023, black 64, CFA RGGB, 23 mm f/1.6, 1/50 s, ISO 500, -0.33 EV |
+| JPEG | `IMG20261024043221.jpg` | 3,077,529 | 4096x3072 | no gain map, no MotionPhoto |
 
-All three files are plain SDR JPEGs. The earlier 5.5 MB still (Live Photo off,
-HDR auto) did contain a gain map, so gain-map presence is **scene/decision
-dependent**, not a fixed property of HDR auto. A controlled high-contrast scene
-is required before drawing conclusions about HDR.
-
-The UI showed `Живое фотоon` during these captures, but they contain no motion
-clip. This is the Live Photo reproducibility issue documented in
-[2026-10-24-livephoto-smoke.md](2026-10-24-livephoto-smoke.md); do not treat
-these files as Live Photo samples.
+Master RAW is **12 MP**, not 50 MP. It is a normal DNG with a 4096x3072 main
+raw in a SubIFD, an 8-bit JPEG preview and full DNG color metadata. The JPEG is
+a plain 3.08 MB render. This is the natural/neutral stock path to compare with
+our RAW 12 rendering.
 
 ## Mode navigation
 
@@ -101,9 +143,12 @@ need the mode-edit list or a different top-level carousel position.
 
 ## Next
 
-1. Resolve Live Photo muxing reproducibility.
-2. Capture a controlled high-contrast HDR scene and compare HDR off/auto with
-   the gain map.
-3. Measure 50 MP detail/noise against our RAW 50 and stock 12 MP.
-4. Zoom stops and front camera (front needs a neutral target or user consent).
+1. ~~Resolve Live Photo muxing reproducibility~~ **Resolved:** deferred append;
+   pause the preview before pulling.
+2. Use the corrected HDR off/auto data; reconstruct the gain map and compare
+   highlight recovery on a controlled high-contrast scene.
+3. Measure 50 MP detail/noise against our RAW 50 and stock 12 MP in the same
+   scene (current files are from different sessions).
+4. Confirm the tele switch at 3x/6x in brighter light; front camera needs a
+   neutral target or user consent.
 5. Gallery display test for the gain map.
