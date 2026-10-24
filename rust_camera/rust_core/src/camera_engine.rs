@@ -991,7 +991,10 @@ impl CameraEngine {
     pub fn set_orientation(&mut self, degrees: i32) -> Result<(), String> {
         let normalized = ((degrees % 360) + 360) % 360;
         if normalized % 90 != 0 {
-            return Err(format!("invalid orientation {}; expected a multiple of 90", degrees));
+            return Err(format!(
+                "invalid orientation {}; expected a multiple of 90",
+                degrees
+            ));
         }
         self.jpeg_orientation = normalized;
         self.dng_orientation = match normalized {
