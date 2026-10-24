@@ -96,6 +96,7 @@ C:\Temp\opencode\stock-lab\
 | [reports/2026-10-24-livephoto-finalization.md](reports/2026-10-24-livephoto-finalization.md) | Resolved: JPEG first, gain map/MP4 appended when the preview pauses; no reboot needed |
 | [reports/2026-10-24-still-batch.md](reports/2026-10-24-still-batch.md) | 50 MP 8192x6144 JPEG, corrected HDR off/auto, zoom stops, Master RAW/JPEG |
 | [reports/2026-10-24-gallery-gainmap.md](reports/2026-10-24-gallery-gainmap.md) | Gallery did not rewrite the file; real ~1.95-stop gain map |
+| [reports/2026-10-24-50mp-neutral-render.md](reports/2026-10-24-50mp-neutral-render.md) | Same-scene stock 50 MP vs our RAW50 neutral render; stock has ~2x local gradient energy |
 
 ## Status (2026-10-23)
 
