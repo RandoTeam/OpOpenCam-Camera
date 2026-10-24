@@ -1,0 +1,9 @@
+# Binary/vendor artifacts are local research evidence and are not tracked.
+*.zip binary
+*.so binary
+*.bin binary
+*.dng binary
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.mp4 binary

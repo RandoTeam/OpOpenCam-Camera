@@ -1,0 +1,3 @@
+# Local-only research artifacts: vendor modules, extracted binaries, personal
+# captures and downloaded archives. Never commit these to the public repo.
+.local-research/
