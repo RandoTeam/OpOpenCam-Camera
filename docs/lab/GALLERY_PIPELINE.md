@@ -48,6 +48,15 @@ proven to be HDR; it may be a full-resolution decode or an SDR render. An
 HDR-aware measurement or a different gallery mode is still required.
 Full report: [reports/2026-10-24-gallery-gainmap.md](reports/2026-10-24-gallery-gainmap.md).
 
+## 1b. Independent evidence from a camera mod
+
+The local `OP13 Stock Cam Mod (GCam Killer) v0.7` modifies only camera-side
+libraries and Qualcomm Chromatix tuning; it contains no gallery code or display
+shader. This supports the split used here: the stock watercolor/sharpening look
+is produced during capture, while the gallery is a viewer that may decode the
+full-resolution file and optionally apply the embedded gain map. See
+[../research/2026-10-24-op13-stock-cam-mod-v0.7.md](../research/2026-10-24-op13-stock-cam-mod-v0.7.md).
+
 ## 2. Hypotheses
 
 | # | Hypothesis | Confirming evidence | Rejecting evidence |
