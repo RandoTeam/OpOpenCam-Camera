@@ -122,3 +122,32 @@ After 30 s without interaction, the camera hides its controls behind a black
 UI and resets the timer. The overlay is suppressed while capturing, recording,
 switching or when the gallery is open. This is UI-only for now; stopping the
 preview stream later can save additional battery/heat.
+
+## Photo UI v2 (build-verified, device validation pending)
+
+The first visual pass is implemented in `CameraScreen.kt`:
+
+- PHOTO/VIDEO is now a stock-like segmented switch; the active segment uses the
+  orange selection accent.
+- The top bar shows the brand, the current format/lens summary and, only while
+  busy or on error, a status message. Normal operation does not show debug text.
+- A subtle rule-of-thirds grid sits over the preview.
+- The bottom capture row is [gallery thumb] [86 dp shutter] [flip camera].
+  The front/rear chips were removed from the zoom row.
+- All controls use safe-area insets; the capture deck respects the gesture bar.
+- Zoom pills use the orange selection accent. The slider remains for continuous
+  logical zoom; releasing it after a physical-lens preset returns to logical
+  auto zoom at the requested stop.
+- Lens presets are honest: 0.6x selects the physical ultra-wide (camera 3), 3x
+  selects the physical telephoto (camera 4), and 6x is a 2x crop on that
+  telephoto. The app does **not** copy the stock low-light trick of keeping
+  3x/6x on the main sensor. If a physical lens cannot start the selected mode,
+  the app falls back to the logical camera and says so.
+
+Still to do in the next visual pass:
+
+- move the four format chips into a compact format sheet opened from the
+  top-bar badge, as specified above;
+- add a recording timer and mic state to the Video chrome;
+- show an explicit saving/progress state for RAW 50 and HDR;
+- validate portrait/landscape layout, touch targets and haptics on the device.

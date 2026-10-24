@@ -15,6 +15,16 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Photo UI v2: stock-like PHOTO/VIDEO segmented switch, orange selection accent,
+  viewfinder grid, safe-area insets, and a capture row with gallery thumb,
+  centered shutter and flip-camera button.
+- Zoom presets now select real lenses: 0.6x = physical ultra-wide (camera 3),
+  3x = physical telephoto (camera 4), 6x = 2x crop on the telephoto. The app does
+  not copy the stock low-light behavior of keeping 3x/6x on the main sensor.
+- Physical-lens start failure falls back to the logical camera instead of
+  leaving a black preview; status text makes the fallback explicit.
+- Build-verified on the host; device visual/interaction validation is pending.
+
 - MediaStore publication for captures (`DCIM/OpOpenCam`, `Movies/OpOpenCam`);
   app-specific copy is kept; JPEG URI verified with `is_pending=0`.
 - In-app latest thumbnail and gallery overlay (JPEG preview; DNG/MP4 placeholders).
