@@ -28,6 +28,20 @@ without evidence.
   camera.
 - The camera writes to `DCIM/Camera`; our app writes to `DCIM/OpOpenCam`.
 
+## 1a. First result (2026-10-24)
+
+A stock still with an Ultra HDR gain map (`IMG20261024012832.jpg`, 5,499,799
+bytes) was opened in the stock gallery. The SHA-256, size and mtime were
+unchanged after 10 s, and screenshots at 0.2-10 s were byte-identical. For this
+file, the gallery did **not** rewrite the original during viewing.
+
+The embedded 2048x1536 gain map declares `GainMapMax=1.94892` (~1.95 stops) and
+has real per-pixel variation (mean 36.7, std 33.2, p99 205; correlation 0.825
+with primary luma). It is a genuine HDR gain map, not a flat placeholder. The
+gallery is therefore a candidate for display-time gain-map rendering; an
+HDR-aware measurement is still required because SDR screenshots cannot prove it.
+Full report: [reports/2026-10-24-gallery-gainmap.md](reports/2026-10-24-gallery-gainmap.md).
+
 ## 2. Hypotheses
 
 | # | Hypothesis | Confirming evidence | Rejecting evidence |

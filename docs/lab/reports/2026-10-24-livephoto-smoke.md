@@ -24,18 +24,18 @@ still being written. A second pull after the size stabilised produced the full
 
 ### Provenance and reproducibility
 
-The 14.2 MB file's EXIF DateTime is `01:16:18`; the host shutter tap was later
-and the host/device clocks differ by roughly 15 s. The file may have been a user
-test shot that MediaStore indexed during the run, not an automated capture.
-Treat it as a verified **stock sample**, not as proof that the runner captured
-Live Photo.
+The file timestamp is `01:16:18` in device time. The host clock is ~15 s ahead
+of the device (measured after the run), so this corresponds to the host shutter
+at `01:16:32`. The user confirms no manual shot immediately before the run.
+This is therefore the **first automated Live Photo capture**; the file is valid
+evidence.
 
-After that sample, automated captures with the UI showing Live Photo on
-produced ~2.5 MB stills with no MotionPhoto and no gain map (HDR off, HDR auto,
-and after a clean camera restart). The stock process still had
-`AudioEncoderThr`, `VideoEncoderThr` and `MediaCodec_loop` threads. Live Photo
-muxing is therefore **not yet reproduced** by the automation. Resolve this with
-a clean-state/reboot or stock-setting reset before claiming it.
+After that sample, toggling Live Photo off/on and subsequent captures produced
+~2.5 MB stills with no MotionPhoto and no gain map (HDR off, HDR auto, and after
+a clean camera restart). The stock process still had `AudioEncoderThr`,
+`VideoEncoderThr` and `MediaCodec_loop` threads. The stock muxing path stopped
+writing motion after the toggle; a clean reset/reboot is required before
+claiming the pipeline is repeatable.
 
 ## File structure
 

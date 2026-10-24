@@ -94,6 +94,7 @@ C:\Temp\opencode\stock-lab\
 | [reports/2026-10-23-stock-recon.md](reports/2026-10-23-stock-recon.md) | First reconnaissance: nine-stream stock session, UI IDs, tool limits |
 | [reports/2026-10-24-livephoto-smoke.md](reports/2026-10-24-livephoto-smoke.md) | First stock Live Photo: 3.18 s clip, 1.67 s pre-roll, mono AAC, Ultra HDR gain map |
 | [reports/2026-10-24-still-batch.md](reports/2026-10-24-still-batch.md) | 50 MP 8192x6144 JPEG, HDR off/auto, landscape mode grid, Live Photo caveat |
+| [reports/2026-10-24-gallery-gainmap.md](reports/2026-10-24-gallery-gainmap.md) | Gallery did not rewrite the file; real ~1.95-stop gain map |
 
 ## Status (2026-10-23)
 
@@ -117,8 +118,11 @@ It records the active nine-stream stock session, a 1920x1440 preview stream,
 preconfigured 12 MP/50 MP RAW streams and physical ultra-wide/tele streams.
 The first Live Photo report is
 [reports/2026-10-24-livephoto-smoke.md](reports/2026-10-24-livephoto-smoke.md):
-a 3.18 s clip with a 1.67 s pre-roll, 1728x1296 HEVC, mono AAC and an Ultra HDR
-gain map. The still batch
+the first automated stock capture, a 3.18 s clip with a 1.67 s pre-roll,
+1728x1296 HEVC, mono AAC and an Ultra HDR gain map. The still batch
 ([reports/2026-10-24-still-batch.md](reports/2026-10-24-still-batch.md)) confirms
-a real 8192x6144 stock JPEG and documents HDR off/auto. Live Photo muxing
-reproducibility and the gallery display test are still open.
+a real 8192x6144 stock JPEG and documents HDR off/auto. The gallery test
+([reports/2026-10-24-gallery-gainmap.md](reports/2026-10-24-gallery-gainmap.md))
+shows no file rewrite and a real ~1.95-stop gain map. After toggling Live Photo
+off/on, the stock muxing path stopped writing motion; a clean reset/reboot is
+the next step.
