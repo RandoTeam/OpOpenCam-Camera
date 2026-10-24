@@ -135,6 +135,9 @@ The first visual pass is implemented in `CameraScreen.kt`:
 - The bottom capture row is [gallery thumb] [86 dp shutter] [flip camera].
   The front/rear chips were removed from the zoom row.
 - All controls use safe-area insets; the capture deck respects the gesture bar.
+- The top-bar format badge opens a bottom sheet with the working formats only
+  (12 MP JPEG, RAW 12, RAW 50, HDR 3x). 50 MP JPEG is explained as unavailable;
+  there is no dead selectable row.
 - Zoom pills use the orange selection accent. The slider remains for continuous
   logical zoom; releasing it after a physical-lens preset returns to logical
   auto zoom at the requested stop.
@@ -146,8 +149,6 @@ The first visual pass is implemented in `CameraScreen.kt`:
 
 Still to do in the next visual pass:
 
-- move the four format chips into a compact format sheet opened from the
-  top-bar badge, as specified above;
 - add a recording timer and mic state to the Video chrome;
 - show an explicit saving/progress state for RAW 50 and HDR;
 - validate portrait/landscape layout, touch targets and haptics on the device.

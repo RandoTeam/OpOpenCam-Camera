@@ -137,6 +137,7 @@ fun CameraScreen() {
     var videoBusy by remember { mutableStateOf(false) }
     var switching by remember { mutableStateOf(false) }
     var showGallery by remember { mutableStateOf(false) }
+    var showFormatSheet by remember { mutableStateOf(false) }
     var standby by remember { mutableStateOf(false) }
     var lastInteraction by remember { mutableStateOf(0L) }
     var resumed by remember {
@@ -165,6 +166,7 @@ fun CameraScreen() {
                 Lifecycle.Event.ON_STOP -> {
                     resumed = false
                     standby = false
+                    showFormatSheet = false
                 }
                 else -> Unit
             }
@@ -183,9 +185,10 @@ fun CameraScreen() {
         videoBusy,
         switching,
         showGallery,
+        showFormatSheet,
         resumed,
     ) {
-        if (!resumed || capturing || recording || videoBusy || switching || showGallery) {
+        if (!resumed || capturing || recording || videoBusy || switching || showGallery || showFormatSheet) {
             standby = false
             return@LaunchedEffect
         }
@@ -533,8 +536,15 @@ fun CameraScreen() {
                     fontSize = 10.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.width(190.dp)
+                    modifier = Modifier.width(150.dp)
                 )
+            } else if (!videoMode) {
+                FormatBadge(modeLabel(captureMode)) {
+                    if (!capturing && !switching && !videoBusy) {
+                        showFormatSheet = true
+                        lastInteraction++
+                    }
+                }
             }
         }
 
@@ -568,17 +578,7 @@ fun CameraScreen() {
 
             Spacer(Modifier.height(10.dp))
 
-            if (!videoMode) {
-                Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    SettingChip("12 MP", captureMode == MODE_JPEG12) { restart(0, MODE_JPEG12) }
-                    SettingChip("RAW 12", captureMode == MODE_RAW12) { restart(0, MODE_RAW12) }
-                    SettingChip("RAW 50", captureMode == MODE_RAW50) { restart(0, MODE_RAW50) }
-                    SettingChip("HDR", captureMode == MODE_HDR3) { restart(0, MODE_HDR3) }
-                }
-            } else {
+            if (videoMode) {
                 SettingChip(
                     if (video4k16) "4K 16:9 \u00b7 60" else "4K 4:3 \u00b7 30",
                     true,
@@ -588,9 +588,8 @@ fun CameraScreen() {
                         status = if (video4k16) "Video 4K 16:9 \u00b7 60 fps" else "Video 4K 4:3 \u00b7 30 fps"
                     }
                 }
+                Spacer(Modifier.height(10.dp))
             }
-
-            Spacer(Modifier.height(10.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 SettingChip("0.6", zoom == 0.6f) { setZoomPreset(0.6f) }
@@ -741,11 +740,22 @@ fun CameraScreen() {
             )
         }
 
+        if (showFormatSheet && !showGallery) {
+            FormatSheet(
+                current = captureMode,
+                onSelect = { mode ->
+                    showFormatSheet = false
+                    restart(0, mode)
+                },
+                onDismiss = { showFormatSheet = false }
+            )
+        }
+
         if (showGallery) {
             GalleryOverlay(context) { showGallery = false }
         }
 
-        if (standby && !showGallery && !capturing && !recording && !videoBusy && !switching && resumed) {
+        if (standby && !showGallery && !showFormatSheet && !capturing && !recording && !videoBusy && !switching && resumed) {
             StandbyOverlay {
                 standby = false
                 lastInteraction++
@@ -806,6 +816,128 @@ private fun StandbyOverlay(onWake: () -> Unit) {
                 fontSize = 14.sp,
             )
         }
+    }
+}
+
+/** Compact top-bar badge that opens the capture-format sheet. */
+@Composable
+private fun FormatBadge(label: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(Color.White.copy(alpha = 0.10f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "$label \u25be",
+            color = Color.White,
+            fontWeight = FontWeight.Medium,
+            fontSize = 11.sp
+        )
+    }
+}
+
+/** Bottom sheet for working capture formats only. */
+@Composable
+private fun FormatSheet(current: Int, onSelect: (Int) -> Unit, onDismiss: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.55f))
+            .clickable(onClick = onDismiss)
+    ) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                .background(Color(0xFF111111))
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 18.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "CAPTURE FORMAT",
+                    color = Color.White.copy(alpha = 0.55f),
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 11.sp
+                )
+                Text(
+                    text = "Close",
+                    color = Accent,
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                        .clickable(onClick = onDismiss)
+                        .padding(8.dp)
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            FormatRow("12 MP JPEG", "Standard still", current == MODE_JPEG12) {
+                onSelect(MODE_JPEG12)
+            }
+            FormatRow("RAW 12", "DNG, about 25 MB", current == MODE_RAW12) {
+                onSelect(MODE_RAW12)
+            }
+            FormatRow("RAW 50", "DNG, about 96 MB; maximum detail", current == MODE_RAW50) {
+                onSelect(MODE_RAW50)
+            }
+            FormatRow("HDR 3x", "Three-frame merge; hold still", current == MODE_HDR3) {
+                onSelect(MODE_HDR3)
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "50 MP JPEG is unavailable through Camera2 on this device; use RAW 50.",
+                color = Color.White.copy(alpha = 0.40f),
+                fontSize = 10.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun FormatRow(
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (selected) Accent.copy(alpha = 0.16f) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = title,
+                color = Color.White,
+                fontWeight = FontWeight.Medium,
+                fontSize = 14.sp
+            )
+            Text(
+                text = subtitle,
+                color = Color.White.copy(alpha = 0.50f),
+                fontSize = 10.sp
+            )
+        }
+        Text(
+            text = if (selected) "\u2713" else "",
+            color = Accent,
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp
+        )
     }
 }
 
