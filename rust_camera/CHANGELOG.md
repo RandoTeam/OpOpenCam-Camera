@@ -15,6 +15,10 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Physical orientation detection (`OrientationEventListener`) for the
+  landscape-first camera. The standby screen and preview follow the way the
+  phone is held even though the activity layout remains fixed; control layout
+  reflow is deliberately not changed in this step.
 - Landscape-first camera UI (`sensorLandscape`) with a rotated `TextureView`
   preview and left/right control rails, matching the stock camera orientation.
 - Orientation-aware JPEG/DNG capture: sensor/display rotation is applied via

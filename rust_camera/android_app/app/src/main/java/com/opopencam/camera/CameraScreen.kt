@@ -6,8 +6,10 @@ import android.graphics.RectF
 import android.graphics.SurfaceTexture
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.hardware.SensorManager
 import android.os.Environment
 import android.view.Surface
+import android.view.OrientationEventListener
 import android.view.TextureView
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -44,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -52,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -123,6 +127,12 @@ fun CameraScreen() {
     val lifecycleOwner = LocalLifecycleOwner.current
     val configuration = LocalConfiguration.current
     val landscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val displayRotationDegrees = remember {
+        (context.display?.rotation ?: Surface.ROTATION_0) * 90
+    }
+    var deviceRotation by remember { mutableIntStateOf(displayRotationDegrees) }
+    val deviceRotationState = rememberUpdatedState(deviceRotation)
+    val uiRotation = ((deviceRotation - displayRotationDegrees) % 360 + 360) % 360
     val haptics = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
 
@@ -182,6 +192,23 @@ fun CameraScreen() {
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // Physical rotation is independent of the activity lock. The camera UI is
+    // landscape-first, but standby and the preview must still know which way
+    // the phone is being held.
+    DisposableEffect(context) {
+        val listener = object : OrientationEventListener(context, SensorManager.SENSOR_DELAY_NORMAL) {
+            override fun onOrientationChanged(orientation: Int) {
+                if (orientation == ORIENTATION_UNKNOWN) return
+                val rounded = ((orientation + 45) / 90 * 90) % 360
+                if (rounded != deviceRotation) {
+                    deviceRotation = rounded
+                }
+            }
+        }
+        listener.enable()
+        onDispose { listener.disable() }
     }
 
     // UI-only standby: hide the chrome, keep the SurfaceView and session alive.
@@ -251,6 +278,13 @@ fun CameraScreen() {
     }
 
     val textureView = remember { TextureView(context) }
+
+    LaunchedEffect(deviceRotation) {
+        if (textureView.isAvailable) {
+            configurePreviewTransform(textureView, 1440, 1080, deviceRotationState.value)
+        }
+    }
+
 
     fun describeStatus(requestedCamera: Int, requestedMode: Int, ok: Boolean) {
         status = when {
@@ -504,7 +538,7 @@ fun CameraScreen() {
                     describeStatus(requestedCamera, requestedMode, ok)
                     started = true
                     textureView.post {
-                        configurePreviewTransform(textureView, 1440, 1080)
+                        configurePreviewTransform(textureView, 1440, 1080, deviceRotationState.value)
                     }
                 }
             }
@@ -516,7 +550,7 @@ fun CameraScreen() {
             }
 
             override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, width: Int, height: Int) {
-                configurePreviewTransform(textureView, 1440, 1080)
+                configurePreviewTransform(textureView, 1440, 1080, deviceRotationState.value)
             }
 
             override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
@@ -604,7 +638,7 @@ fun CameraScreen() {
                 modifier = Modifier
                     .fillMaxSize()
                     .onSizeChanged {
-                        configurePreviewTransform(textureView, 1440, 1080)
+                        configurePreviewTransform(textureView, 1440, 1080, deviceRotationState.value)
                     }
             )
             Canvas(Modifier.matchParentSize()) {
@@ -909,7 +943,7 @@ fun CameraScreen() {
         }
 
         if (standby && !showGallery && !showFormatSheet && !capturing && !recording && !videoBusy && !switching && resumed) {
-            StandbyOverlay {
+            StandbyOverlay(rotationDegrees = uiRotation) {
                 standby = false
                 lastInteraction++
             }
@@ -917,15 +951,20 @@ fun CameraScreen() {
     }
 }
 
-private fun configurePreviewTransform(view: TextureView, previewWidth: Int, previewHeight: Int) {
+private fun configurePreviewTransform(
+    view: TextureView,
+    previewWidth: Int,
+    previewHeight: Int,
+    deviceRotationDegrees: Int
+) {
     val viewWidth = view.width
     val viewHeight = view.height
     if (viewWidth == 0 || viewHeight == 0) return
 
-    val displayRotation = view.display?.rotation ?: Surface.ROTATION_0
-    // Rear sensor is mounted at 90 degrees. In portrait the buffer must be
-    // rotated; in landscape the sensor buffer is already upright.
-    val rotationDegrees = (90 - displayRotation * 90 + 360) % 360
+    // Rear sensor is mounted at 90 degrees. Use the physical device rotation,
+    // not the locked activity rotation, so a portrait-held phone does not show
+    // a sideways preview.
+    val rotationDegrees = (90 - deviceRotationDegrees + 360) % 360
     val landscape = viewWidth > viewHeight
 
     val matrix = Matrix()
@@ -953,7 +992,7 @@ private fun configurePreviewTransform(view: TextureView, previewWidth: Int, prev
  * touch or restart the camera session.
  */
 @Composable
-private fun StandbyOverlay(onWake: () -> Unit) {
+private fun StandbyOverlay(rotationDegrees: Int, onWake: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -961,7 +1000,10 @@ private fun StandbyOverlay(onWake: () -> Unit) {
             .clickable(onClick = onWake),
         contentAlignment = Alignment.Center,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.rotate(rotationDegrees.toFloat())
+        ) {
             Canvas(Modifier.size(64.dp)) {
                 val ink = Color.White.copy(alpha = 0.85f)
                 val stroke = Stroke(width = 2.dp.toPx())
