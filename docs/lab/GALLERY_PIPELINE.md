@@ -37,9 +37,15 @@ file, the gallery did **not** rewrite the original during viewing.
 
 The embedded 2048x1536 gain map declares `GainMapMax=1.94892` (~1.95 stops) and
 has real per-pixel variation (mean 36.7, std 33.2, p99 205; correlation 0.825
-with primary luma). It is a genuine HDR gain map, not a flat placeholder. The
-gallery is therefore a candidate for display-time gain-map rendering; an
-HDR-aware measurement is still required because SDR screenshots cannot prove it.
+with primary luma). It is a genuine HDR gain map, not a flat placeholder.
+
+A display-time check found that the panel supports HDR (types 1-4, 2000 nits),
+but while the gallery showed this file `HdrBrightnessModifier` reported
+`NO_HDR`, `mIsHdrLayerPresent=false`, and the visible layers had
+`hdr metadata types=0`. In this test the gallery did **not** present an HDR
+layer for the gain-map still. The earlier visual improvement is therefore not
+proven to be HDR; it may be a full-resolution decode or an SDR render. An
+HDR-aware measurement or a different gallery mode is still required.
 Full report: [reports/2026-10-24-gallery-gainmap.md](reports/2026-10-24-gallery-gainmap.md).
 
 ## 2. Hypotheses

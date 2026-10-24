@@ -61,6 +61,27 @@ bright areas need more gain. It preserves highlight/dynamic-range information;
 it does not add detail to the SDR primary. The SDR JPEG declares the gain map;
 an HDR-aware viewer reconstructs the brighter rendition.
 
+## Display-time HDR check
+
+The display advertises HDR10/HLG/Dolby Vision types and a 2000-nit maximum, and
+the current color mode is Display P3. With the same gain-map still open in the
+stock gallery:
+
+| Check | Result |
+|---|---|
+| `HdrBrightnessModifier.mMode` | `NO_HDR` |
+| `mIsHdrLayerPresent` | `false` |
+| `mHdrLayerSize` | `-1.0` |
+| Visible layer metadata | `hdr metadata types=0` on the inspected layers |
+| Gallery SurfaceView dataspace | `V0_SRGB` |
+
+In this test the stock gallery did **not** present an HDR layer for the gain-map
+still. The display is capable, but display-time HDR rendering was not observed.
+That means the earlier "the photo improves" observation is not yet proven to be
+HDR: it may be a full-resolution decode or an SDR render. A controlled
+HDR-aware measurement (or a different gallery mode) is still required. The gain
+map itself is real, as the reconstruction above shows.
+
 ## What this means
 
 - The stock gallery may be showing the HDR gain map at display time without

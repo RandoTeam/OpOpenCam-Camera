@@ -63,6 +63,18 @@ different tone/compression. The earlier Live-Photo-off still with
 a fixed HDR-off/on property. The gain map is a normal Ultra HDR still feature,
 not a Live Photo feature.
 
+A linear reconstruction (`HDR = SDR_linear * 2^(gain * GainMapMax)`) gives:
+
+| Case | SDR clipped >=250 | HDR max | HDR >1 | HDR >2 |
+|---|---|---|---|---|
+| HDR off | 0.514% | 3.35x | 2.29% | 0.60% |
+| HDR auto | 0.385% | 3.34x | 2.01% | 0.44% |
+
+The gain map recovers roughly 1.74 stops in clipped highlights. HDR auto
+slightly reduces clipping and the >2x area, but the gain-map range is almost
+unchanged. This is evidence for building our own gain map from RAW/brackets,
+not for copying stock's tone curve.
+
 The older rows (2.5 MB, no gain map) are retained only as examples of the
 premature-pull bug: file size was stable, `is_pending=0`, and mtime unchanged,
 yet the gain map had not been appended. Do not use them for HDR conclusions.
