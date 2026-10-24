@@ -185,3 +185,15 @@ Device-validated:
 Pending: front camera, video orientation, pinch on a physical two-finger
 gesture, portrait crop, and a final visual pass on the thumbnail/preview
 letterboxing.
+
+## Orientation detection - step 1 (2026-10-24)
+
+`OrientationEventListener` now reports the physical device rotation separately
+from the locked landscape activity. The standby overlay content and the preview
+transform use that rotation, so they no longer stay in the old orientation when
+the phone is turned.
+
+This step deliberately does **not** reflow the camera controls. The next step
+(UI-302) will rotate the relevant control glyphs in place while preserving the
+stock positions; the PHOTO/VIDEO switch and similar fixed controls will not be
+rotated. Device validation requires turning the phone while the app is open.
