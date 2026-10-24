@@ -300,6 +300,7 @@ fun CameraScreen() {
                 // The selected physical lens may not support this mode. Fall
                 // back to the logical camera instead of leaving a black preview.
                 val fallback = withContext(Dispatchers.IO) {
+                    NativeBridge.nativeStopPreview()
                     NativeBridge.nativeStartPreview(surface, 0, requestedMode)
                         .also { started ->
                             if (started) NativeBridge.nativeSetZoom(requestedDisplayZoom)
