@@ -13,6 +13,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -134,6 +135,7 @@ fun CameraScreen() {
     var videoMode by remember { mutableStateOf(false) }
     var video4k16 by remember { mutableStateOf(false) }
     var recording by remember { mutableStateOf(false) }
+    var recordingSeconds by remember { mutableStateOf(0) }
     var videoBusy by remember { mutableStateOf(false) }
     var switching by remember { mutableStateOf(false) }
     var showGallery by remember { mutableStateOf(false) }
@@ -202,6 +204,17 @@ fun CameraScreen() {
     LaunchedEffect(sensorZoom) {
         delay(20)
         withContext(Dispatchers.IO) { NativeBridge.nativeSetZoom(sensorZoom) }
+    }
+    LaunchedEffect(recording) {
+        if (!recording) {
+            recordingSeconds = 0
+            return@LaunchedEffect
+        }
+        val started = System.currentTimeMillis()
+        while (true) {
+            recordingSeconds = ((System.currentTimeMillis() - started) / 1000).toInt()
+            delay(500)
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -487,6 +500,14 @@ fun CameraScreen() {
                 .fillMaxWidth()
                 .aspectRatio(4f / 3f)
                 .align(Alignment.Center)
+                .pointerInput(cameraId) {
+                    detectTransformGestures { _, _, zoomChange, _ ->
+                        if (cameraId == 0 && !capturing && !videoBusy && !switching && !recording) {
+                            zoom = (zoom * zoomChange).coerceIn(0.6f, 6f)
+                            sensorZoom = zoom
+                        }
+                    }
+                }
         ) {
             AndroidView(
                 factory = { surfaceView },
@@ -730,7 +751,7 @@ fun CameraScreen() {
             Text(
                 text = if (videoMode) {
                     val spec = if (video4k16) "4K 16:9 \u00b7 60 fps" else "4K 4:3 \u00b7 30 fps"
-                    if (recording) "REC \u00b7 $spec \u00b7 tap to stop"
+                    if (recording) "REC ${formatDuration(recordingSeconds)} \u00b7 $spec \u00b7 tap to stop"
                     else "VIDEO \u00b7 $spec \u00b7 ${cameraLabel(cameraId)} \u00b7 tap to record"
                 } else {
                     "${modeLabel(captureMode)} \u00b7 ${cameraLabel(cameraId)} \u00b7 ${"%.1f".format(zoom)}\u00d7"
@@ -818,6 +839,9 @@ private fun StandbyOverlay(onWake: () -> Unit) {
         }
     }
 }
+
+private fun formatDuration(seconds: Int): String =
+    "%02d:%02d".format(seconds / 60, seconds % 60)
 
 /** Compact top-bar badge that opens the capture-format sheet. */
 @Composable

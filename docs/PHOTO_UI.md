@@ -138,9 +138,10 @@ The first visual pass is implemented in `CameraScreen.kt`:
 - The top-bar format badge opens a bottom sheet with the working formats only
   (12 MP JPEG, RAW 12, RAW 50, HDR 3x). 50 MP JPEG is explained as unavailable;
   there is no dead selectable row.
-- Zoom pills use the orange selection accent. The slider remains for continuous
-  logical zoom; releasing it after a physical-lens preset returns to logical
-  auto zoom at the requested stop.
+- Zoom pills use the orange selection accent. Pinch-to-zoom and the slider
+  provide continuous logical zoom; releasing the slider after a physical-lens
+  preset returns to logical auto zoom at the requested stop.
+- Video mode shows a live REC timer.
 - Lens presets are honest: 0.6x selects the physical ultra-wide (camera 3), 3x
   selects the physical telephoto (camera 4), and 6x is a 2x crop on that
   telephoto. The app does **not** copy the stock low-light trick of keeping
@@ -149,6 +150,6 @@ The first visual pass is implemented in `CameraScreen.kt`:
 
 Still to do in the next visual pass:
 
-- add a recording timer and mic state to the Video chrome;
+- add a mic state to the Video chrome;
 - show an explicit saving/progress state for RAW 50 and HDR;
 - validate portrait/landscape layout, touch targets and haptics on the device.
