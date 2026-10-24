@@ -81,10 +81,11 @@ local and are not committed. Protocol: [lab/](lab/).
 
 ## Implemented but not fully validated
 
-- Photo UI v2 (PR #8): segmented PHOTO/VIDEO switch, format sheet, orange
-  accent, viewfinder grid, capture row with thumb/shutter/flip, pinch zoom,
-  REC timer and saving progress. Host build is green; device visual/interaction
-  validation is pending.
+- Photo UI v2 (merged): landscape-first `sensorLandscape` UI, left capture rail,
+  right zoom rail, format sheet, orange accent, saving progress and REC timer.
+  Device-validated in landscape: 3x/6x physical tele, 0.6x ultra-wide, JPEG/RAW50
+  upright, HDR 4096x3072 upright. Remaining: front/video orientation, pinch
+  gesture, portrait crop and final visual polish.
 - Neutral DNG to JPEG renderer: host-tested on RAW12/RAW50; not yet integrated
   into the gallery or calibrated for production color/tone.
 - HDR quality on textured static scenes and moving subjects.
