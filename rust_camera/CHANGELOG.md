@@ -181,3 +181,5 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   preview and JPEG capture are unaffected.
 
 [0.4.0-alpha.1]: https://github.com/RandoTeam/OpOpenCam-Camera/releases/tag/v0.4.0-alpha.1
+
+- Photo UI: 30 s idle standby screen ("Tap for preview"), UI-only, session kept alive.
