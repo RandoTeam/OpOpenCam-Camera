@@ -46,6 +46,15 @@ object NativeBridge {
     external fun nativeStopVideo()
     external fun nativeIsVideoRunning(): Boolean
 
+    /**
+     * Renders a DNG from [inputPath] to a neutral JPEG at [outputPath] using the
+     * Rust `render_dng_file` pipeline. CPU-heavy: 50 MP can take 5-15 s, so call
+     * it from a background thread. It does not take the camera engine lock, so
+     * preview and capture stay responsive. Returns false on invalid paths or
+     * render/write errors; the native side logs the reason.
+     */
+    external fun nativeRenderDngToJpeg(inputPath: String, outputPath: String): Boolean
+
     /** Actual mode after HAL fallback; -1 when no session is active. */
     external fun nativeGetActiveMode(): Int
 

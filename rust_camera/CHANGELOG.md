@@ -1,7 +1,7 @@
 # Changelog
 
 > **Public build note:** vendor-specific LUT/tone modules and calibration assets
-> are not included in this repository. The public build has 29 host tests.
+> are not included in this repository. The public build has 36 host tests.
 
 All notable changes to the OpOpenCam Rust camera are documented here.
 
@@ -42,6 +42,10 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - MediaStore publication for captures (`DCIM/OpOpenCam`, `Movies/OpOpenCam`);
   app-specific copy is kept; JPEG URI verified with `is_pending=0`.
 - In-app latest thumbnail and gallery overlay (JPEG preview; DNG/MP4 placeholders).
+- In-app gallery DNG detail now offers **Render JPEG**: the neutral Rust
+  `raw_render` pipeline runs on `Dispatchers.IO` without taking the camera engine
+  lock, writes to app-specific Pictures, publishes to MediaStore and refreshes
+  the grid. Build-verified; device render-time validation pending.
 - Still captures now apply the current zoom ratio, not only preview zoom.
 - Front camera JPEG fixed to its native 3280×2464; orientation 8.
 - Debug `SelfTestActivity` matrix runner (JSONL), covering JPEG zooms, UW/tele/front,

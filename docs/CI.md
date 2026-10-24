@@ -31,7 +31,7 @@ runners. A public repository has free GitHub Actions minutes.
 .\rust_camera\scripts\check.ps1
 ```
 
-The same suite passes locally (29 host tests at the time of writing).
+The same suite passes locally (36 host tests at the time of writing).
 
 ## Release history
 
