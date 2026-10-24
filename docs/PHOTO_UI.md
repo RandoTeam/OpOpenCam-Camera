@@ -144,6 +144,8 @@ The first visual pass is implemented in `CameraScreen.kt`:
   releasing it after a physical-lens preset returns to logical auto zoom at the
   requested stop.
 - Video mode shows a live REC timer.
+- A centered progress card with the current state is shown while a still is
+  being captured/saved; RAW 50 and HDR no longer look frozen.
 - Lens presets are honest: 0.6x selects the physical ultra-wide (camera 3), 3x
   selects the physical telephoto (camera 4), and 6x is a 2x crop on that
   telephoto. The app does **not** copy the stock low-light trick of keeping
@@ -153,5 +155,5 @@ The first visual pass is implemented in `CameraScreen.kt`:
 Still to do in the next visual pass:
 
 - add a mic state to the Video chrome;
-- show an explicit saving/progress state for RAW 50 and HDR;
-- validate portrait/landscape layout, touch targets and haptics on the device.
+- validate portrait/landscape layout, touch targets and haptics on the device;
+- device-test the physical-lens presets and the fallback path.

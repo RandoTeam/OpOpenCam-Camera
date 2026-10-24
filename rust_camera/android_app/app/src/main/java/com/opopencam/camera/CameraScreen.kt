@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -769,6 +770,35 @@ fun CameraScreen() {
                 color = if (recording) Color(0xFFFF5252) else Color.White.copy(alpha = 0.55f),
                 fontSize = 10.sp
             )
+        }
+
+        if (capturing && !showGallery && !showFormatSheet) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.20f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Color.Black.copy(alpha = 0.78f))
+                        .padding(horizontal = 24.dp, vertical = 18.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator(
+                        color = Accent,
+                        strokeWidth = 3.dp,
+                        modifier = Modifier.size(38.dp)
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = status,
+                        color = Color.White,
+                        fontSize = 12.sp
+                    )
+                }
+            }
         }
 
         if (showFormatSheet && !showGallery) {
