@@ -80,6 +80,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -89,6 +90,22 @@ private val Accent = Color(0xFFFF6A00)
 
 /** Idle time before the camera chrome is replaced by the standby screen. */
 private const val STANDBY_TIMEOUT_MS = 30_000L
+
+/** Maximum number of queued stills; the native engine captures them serially. */
+private const val MAX_CAPTURE_QUEUE = 3
+
+/**
+ * One still waiting for the serial worker.
+ *
+ * The JPEG orientation is sampled when the shutter is tapped, not when the
+ * frame is actually read. A shot can wait behind two HDR merges, and the phone
+ * may be turned in that time; the saved file must match the pose of the tap.
+ */
+private data class CaptureJob(
+    val mode: Int,
+    val cameraId: Int,
+    val jpegOrientation: Int,
+)
 
 private const val MODE_JPEG12 = 0
 private const val MODE_JPEG50 = 1
@@ -143,6 +160,13 @@ fun CameraScreen() {
     }
     var status by remember { mutableStateOf("Starting camera…") }
     var capturing by remember { mutableStateOf(false) }
+    // `queuedCaptures` counts every accepted shot that has not finished yet,
+    // including the one the worker is processing. Showing the raw count while
+    // a shot is in flight would say "1 queued" with nothing waiting, so the
+    // status line subtracts the in-flight job.
+    var queuedCaptures by remember { mutableIntStateOf(0) }
+    var processingStatus by remember { mutableStateOf("") }
+    val captureQueue = remember { Channel<CaptureJob>(capacity = MAX_CAPTURE_QUEUE) }
     var zoom by remember { mutableStateOf(1f) }
     var sensorZoom by remember { mutableStateOf(1f) }
     var cameraId by remember { mutableStateOf(0) }
@@ -217,6 +241,7 @@ fun CameraScreen() {
     LaunchedEffect(
         lastInteraction,
         capturing,
+        queuedCaptures,
         recording,
         videoBusy,
         switching,
@@ -224,7 +249,7 @@ fun CameraScreen() {
         showFormatSheet,
         resumed,
     ) {
-        if (!resumed || capturing || recording || videoBusy || switching || showGallery || showFormatSheet) {
+        if (!resumed || capturing || queuedCaptures > 0 || recording || videoBusy || switching || showGallery || showFormatSheet) {
             standby = false
             return@LaunchedEffect
         }
@@ -300,8 +325,8 @@ fun CameraScreen() {
         requestedSensorZoom: Float = 1f,
         requestedDisplayZoom: Float = 1f,
     ) {
-        if (capturing) {
-            status = "Wait for the current photo"
+        if (queuedCaptures > 0) {
+            status = "Wait for processing"
             return
         }
         if (recording || videoBusy) {
@@ -357,7 +382,11 @@ fun CameraScreen() {
     }
 
     fun setZoomPreset(value: Float) {
-        if (capturing || videoBusy || switching) return
+        if (queuedCaptures > 0) {
+            status = "Wait for processing \u00b7 ${queuedCaptures} pending"
+            return
+        }
+        if (videoBusy || switching) return
         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         // Do not copy the stock low-light trick of keeping 3x/6x on the main
         // sensor. These presets select the real telephoto for 3x/6x and the
@@ -381,7 +410,11 @@ fun CameraScreen() {
     }
 
     fun beginVideo() {
-        if (capturing || recording || videoBusy) return
+        if (queuedCaptures > 0) {
+            status = "Wait for processing"
+            return
+        }
+        if (recording || videoBusy) return
         if (!audioGranted) {
             audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             return
@@ -457,53 +490,75 @@ fun CameraScreen() {
         }
     }
 
-    fun capturePhoto() {
-        if (capturing || switching) return
-        capturing = true
-        status = if (captureMode == MODE_HDR3) {
-            "Processing HDR\u2026"
-        } else if (captureMode == MODE_RAW50) {
-            "Saving RAW 50\u2026"
+    fun processCapture(job: CaptureJob): String {
+        val dir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+            ?: context.filesDir
+        dir.mkdirs()
+        val effectiveMode = NativeBridge.nativeGetActiveMode()
+            .let { if (it >= 0) it else job.mode }
+        val extension = if (effectiveMode == MODE_RAW12 || effectiveMode == MODE_RAW50) {
+            "dng"
         } else {
-            "Capturing\u2026"
+            "jpg"
         }
-        scope.launch {
-            // nativeCapturePhoto blocks until the buffer is written; HDR can
-            // take several seconds.
-            val result = withContext(Dispatchers.IO) {
-                val dir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
-                    ?: context.filesDir
-                dir.mkdirs()
-                val effectiveMode = NativeBridge.nativeGetActiveMode()
-                    .let { if (it >= 0) it else captureMode }
-                val extension = if (effectiveMode == MODE_RAW12 || effectiveMode == MODE_RAW50) {
-                    "dng"
+        val file = File(dir, "IMG_${System.currentTimeMillis()}.$extension")
+        // Orientation was sampled at tap time; see CaptureJob.
+        NativeBridge.nativeSetJpegOrientation(job.jpegOrientation)
+        val ok = NativeBridge.nativeCapturePhoto(file.absolutePath)
+        return when {
+            ok -> {
+                val uri = MediaStoreSaver.publishImage(context, file)
+                if (uri != null) {
+                    "Saved ${file.name} \u00b7 Gallery"
                 } else {
-                    "jpg"
-                }
-                val file = File(dir, "IMG_${System.currentTimeMillis()}.$extension")
-                val displayRotation = context.display?.rotation ?: Surface.ROTATION_0
-                val sensorOrientation = if (cameraId == 1) 270 else 90
-                val jpegOrientation = ((sensorOrientation - displayRotation * 90) % 360 + 360) % 360
-                NativeBridge.nativeSetJpegOrientation(jpegOrientation)
-                val ok = NativeBridge.nativeCapturePhoto(file.absolutePath)
-                when {
-                    ok -> {
-                        val uri = MediaStoreSaver.publishImage(context, file)
-                        if (uri != null) {
-                            "Saved ${file.name} \u00b7 Gallery"
-                        } else {
-                            "Saved ${file.name} \u00b7 not indexed"
-                        }
-                    }
-                    effectiveMode == MODE_JPEG50 -> "50 MP JPEG unavailable \u2014 use RAW 50"
-                    else -> "Capture failed - see logcat"
+                    "Saved ${file.name} \u00b7 not indexed"
                 }
             }
-            galleryItems = withContext(Dispatchers.IO) { listGalleryItems(context) }
-            status = result
-            capturing = false
-            Toast.makeText(context, result, Toast.LENGTH_SHORT).show()
+            effectiveMode == MODE_JPEG50 -> "50 MP JPEG unavailable \u2014 use RAW 50"
+            else -> "Capture failed - see logcat"
+        }
+    }
+
+    /** Waiting shots, i.e. everything except the one currently being processed. */
+    fun waitingCaptures(): Int = (queuedCaptures - if (capturing) 1 else 0).coerceAtLeast(0)
+
+    fun queuedSuffix(waiting: Int): String =
+        if (waiting > 0) " \u00b7 $waiting queued" else ""
+
+    fun pendingSuffix(waiting: Int): String =
+        if (waiting > 0) " \u00b7 $waiting pending" else ""
+
+    /** Visible feedback instead of a silent no-op while the queue drains. */
+    fun busyMessage(): String =
+        if (capturing && processingStatus.isNotEmpty()) {
+            processingStatus + queuedSuffix(waitingCaptures())
+        } else {
+            "Wait for processing \u00b7 ${queuedCaptures} pending"
+        }
+
+    fun capturePhoto() {
+        if (switching || videoBusy) return
+        if (queuedCaptures >= MAX_CAPTURE_QUEUE) {
+            status = "Processing queue full \u00b7 ${queuedCaptures} pending"
+            return
+        }
+        // Sampling the display rotation here keeps the saved still upright even
+        // if the phone is turned while earlier shots are still being processed.
+        val displayRotation = (context.display?.rotation ?: Surface.ROTATION_0) * 90
+        val sensorOrientation = if (cameraId == 1) 270 else 90
+        val jpegOrientation = ((sensorOrientation - displayRotation) % 360 + 360) % 360
+        val job = CaptureJob(captureMode, cameraId, jpegOrientation)
+        if (captureQueue.trySend(job).isSuccess) {
+            queuedCaptures++
+            // Never replace a "Processing HDR..." line with the queue text; the
+            // per-shot progress is the more useful state while a shot is busy.
+            status = if (capturing && processingStatus.isNotEmpty()) {
+                processingStatus + queuedSuffix(waitingCaptures())
+            } else {
+                "Queued ${modeLabel(job.mode)}" + pendingSuffix(waitingCaptures())
+            }
+        } else {
+            status = "Processing queue full"
         }
     }
 
@@ -513,6 +568,51 @@ fun CameraScreen() {
             if (recording) endVideo() else beginVideo()
         } else {
             capturePhoto()
+        }
+    }
+
+    // Single serial worker: HDR fusion and 50 MP RAW are heavy and the native
+    // engine is not re-entrant, so exactly one shot is captured at a time. It
+    // runs on the composition scope (main) and only the blocking JNI call moves
+    // to Dispatchers.IO, which keeps `queuedCaptures` free of data races.
+    LaunchedEffect(captureQueue) {
+        for (job in captureQueue) {
+            capturing = true
+            processingStatus = when (job.mode) {
+                MODE_HDR3 -> "Processing HDR\u2026"
+                MODE_RAW50 -> "Saving RAW 50\u2026"
+                else -> "Capturing\u2026"
+            }
+            // This job is now in flight, so the remaining count is the queue.
+            status = processingStatus + queuedSuffix(waitingCaptures())
+            var result = "Capture failed"
+            try {
+                result = try {
+                    withContext(Dispatchers.IO) { processCapture(job) }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (t: Throwable) {
+                    "Capture failed: ${t.message ?: t.javaClass.simpleName}"
+                }
+                try {
+                    galleryItems = withContext(Dispatchers.IO) { listGalleryItems(context) }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (t: Throwable) {
+                    result += " \u00b7 gallery refresh failed"
+                }
+            } finally {
+                // Always release the queue slot, even if gallery refresh or a
+                // future post-processing step throws. Otherwise the shutter and
+                // every mode control stay blocked until the app is killed.
+                queuedCaptures = (queuedCaptures - 1).coerceAtLeast(0)
+                capturing = false
+                processingStatus = ""
+                // Keep the per-shot result; only append the count of shots that
+                // are still waiting behind it.
+                status = result + queuedSuffix(queuedCaptures)
+            }
+            Toast.makeText(context, result, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -616,7 +716,7 @@ fun CameraScreen() {
                     .align(Alignment.Center)
             }).pointerInput(cameraId) {
                     detectTransformGestures { _, _, zoomChange, _ ->
-                        if (!capturing && !videoBusy && !switching && !recording) {
+                        if (queuedCaptures == 0 && !videoBusy && !switching && !recording) {
                             // Keep the pinch within the active lens; use the
                             // pills to cross lens boundaries. This avoids a
                             // silent logical-camera switch during a gesture.
@@ -679,7 +779,7 @@ fun CameraScreen() {
                     fontSize = 10.sp
                 )
             }
-            if (capturing || switching || videoBusy || recording ||
+            if (capturing || queuedCaptures > 0 || switching || videoBusy || recording ||
                 status.contains("failed", ignoreCase = true) ||
                 status.contains("denied", ignoreCase = true) ||
                 status.contains("unavailable", ignoreCase = true)
@@ -694,9 +794,11 @@ fun CameraScreen() {
                 )
             } else if (!videoMode) {
                 FormatBadge(modeLabel(captureMode)) {
-                    if (!capturing && !switching && !videoBusy) {
+                    if (queuedCaptures == 0 && !switching && !videoBusy) {
                         showFormatSheet = true
                         lastInteraction++
+                    } else if (queuedCaptures > 0) {
+                        status = busyMessage()
                     }
                 }
             }
@@ -739,13 +841,15 @@ fun CameraScreen() {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             ModeSegment(videoMode) { isVideo ->
-                if (!recording && !videoBusy) {
+                if (queuedCaptures == 0 && !recording && !videoBusy) {
                     videoMode = isVideo
                     status = if (isVideo) {
                         if (video4k16) "Video 4K 16:9 \u00b7 60 fps" else "Video 4K 4:3 \u00b7 30 fps"
                     } else {
                         "Photo mode"
                     }
+                } else if (queuedCaptures > 0) {
+                    status = busyMessage()
                 }
             }
 
@@ -756,7 +860,7 @@ fun CameraScreen() {
                     if (video4k16) "4K 16:9 \u00b7 60" else "4K 4:3 \u00b7 30",
                     true,
                 ) {
-                    if (!recording && !videoBusy) {
+                    if (queuedCaptures == 0 && !recording && !videoBusy) {
                         video4k16 = !video4k16
                         status = if (video4k16) "Video 4K 16:9 \u00b7 60 fps" else "Video 4K 4:3 \u00b7 30 fps"
                     }
@@ -790,12 +894,12 @@ fun CameraScreen() {
                     recording = recording,
                     videoBusy = videoBusy,
                     videoMode = videoMode,
-                    enabled = if (videoMode) !videoBusy else !capturing && !switching,
+                    enabled = if (videoMode) !videoBusy else queuedCaptures < MAX_CAPTURE_QUEUE && !switching,
                     onClick = { onShutter() }
                 )
 
                 FlipCameraButton(
-                    enabled = !recording && !videoBusy && !capturing && !switching
+                    enabled = queuedCaptures == 0 && !recording && !videoBusy && !switching
                 ) {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     if (cameraId == 1) restart(0, captureMode) else restart(1, MODE_JPEG12)
@@ -838,11 +942,11 @@ fun CameraScreen() {
                     recording = recording,
                     videoBusy = videoBusy,
                     videoMode = videoMode,
-                    enabled = if (videoMode) !videoBusy else !capturing && !switching,
+                    enabled = if (videoMode) !videoBusy else queuedCaptures < MAX_CAPTURE_QUEUE && !switching,
                     onClick = { onShutter() }
                 )
                 FlipCameraButton(
-                    enabled = !recording && !videoBusy && !capturing && !switching
+                    enabled = queuedCaptures == 0 && !recording && !videoBusy && !switching
                 ) {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     if (cameraId == 1) restart(0, captureMode) else restart(1, MODE_JPEG12)
@@ -871,13 +975,18 @@ fun CameraScreen() {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 ModeSegment(videoMode) { isVideo ->
-                    if (!recording && !videoBusy) {
+                    // Same guard as the portrait fallback: a PHOTO/VIDEO switch
+                    // during processing would restart the session and overwrite
+                    // the per-shot status, so the queue must be empty first.
+                    if (queuedCaptures == 0 && !recording && !videoBusy) {
                         videoMode = isVideo
                         status = if (isVideo) {
                             if (video4k16) "Video 4K 16:9 \u00b7 60 fps" else "Video 4K 4:3 \u00b7 30 fps"
                         } else {
                             "Photo mode"
                         }
+                    } else if (queuedCaptures > 0) {
+                        status = busyMessage()
                     }
                 }
                 if (videoMode) {
@@ -891,35 +1000,6 @@ fun CameraScreen() {
                         },
                         color = if (recording) Color(0xFFFF5252) else Color.White.copy(alpha = 0.55f),
                         fontSize = 10.sp
-                    )
-                }
-            }
-        }
-
-        if (capturing && !showGallery && !showFormatSheet) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.20f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(Color.Black.copy(alpha = 0.78f))
-                        .padding(horizontal = 24.dp, vertical = 18.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    CircularProgressIndicator(
-                        color = Accent,
-                        strokeWidth = 3.dp,
-                        modifier = Modifier.size(38.dp)
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    Text(
-                        text = status,
-                        color = Color.White,
-                        fontSize = 12.sp
                     )
                 }
             }
@@ -942,7 +1022,7 @@ fun CameraScreen() {
             GalleryOverlay(context) { showGallery = false }
         }
 
-        if (standby && !showGallery && !showFormatSheet && !capturing && !recording && !videoBusy && !switching && resumed) {
+        if (standby && !showGallery && !showFormatSheet && !capturing && queuedCaptures == 0 && !recording && !videoBusy && !switching && resumed) {
             StandbyOverlay(rotationDegrees = uiRotation) {
                 standby = false
                 lastInteraction++
@@ -961,10 +1041,18 @@ private fun configurePreviewTransform(
     val viewHeight = view.height
     if (viewWidth == 0 || viewHeight == 0) return
 
-    // Rear sensor is mounted at 90 degrees. Use the physical device rotation,
-    // not the locked activity rotation, so a portrait-held phone does not show
-    // a sideways preview.
-    val rotationDegrees = (90 - deviceRotationDegrees + 360) % 360
+    // Keep the preview tied to the locked activity rotation. Physical rotation
+    // is used for the standby/glyph layer; using the raw orientation sensor for
+    // the preview makes a phone lying flat report portrait and flips the image.
+    //
+    // The preview stream arrives 90 degrees rotated relative to the JPEG stream
+    // (validated against a saved still in the same pose), so it only needs the
+    // display counter-rotation. Using the still formula here puts the preview
+    // sideways while the saved JPEG is upright.
+    val displayRotation = view.display?.rotation ?: Surface.ROTATION_0
+    val rotationDegrees = (360 - displayRotation * 90) % 360
+    @Suppress("UNUSED_VARIABLE")
+    val physicalRotation = deviceRotationDegrees
     val landscape = viewWidth > viewHeight
 
     val matrix = Matrix()
