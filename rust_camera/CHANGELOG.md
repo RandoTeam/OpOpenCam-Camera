@@ -19,14 +19,20 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   landscape-first camera. The standby screen and preview follow the way the
   phone is held even though the activity layout remains fixed; control layout
   reflow is deliberately not changed in this step.
-- Landscape-first camera UI (`sensorLandscape`) with a rotated `TextureView`
-  preview and left/right control rails, matching the stock camera orientation.
+- First landscape UI pass (`sensorLandscape`) with a rotated `TextureView` preview
+  and left/right control rails. This is not the stock single-canvas layout; UI-302
+  replaces it.
 - Orientation-aware JPEG/DNG capture: sensor/display rotation is applied via
   `nativeSetJpegOrientation`; landscape stills use orientation 3 (180 degrees)
   and RAW 50 DNGs carry orientation 3.
 - Device-validated physical lens presets: 3x tele (camera 4), 6x tele crop, 0.6x
   ultra-wide (camera 3), 1x logical; separate JPEG/RAW captures are upright.
 - HDR 3x output follows the display orientation; landscape HDR is 4096x3072.
+- Background still queue: a bounded three-shot channel and one serial worker;
+  JPEG/RAW/HDR capture and saving do not block the shutter. Each job carries its
+  tap-time orientation, mode/lens/format/PHOTO-VIDEO are blocked while the queue
+  drains, and the status shows the pending count. Device-validated with three
+  rapid JPEG and three rapid HDR captures.
 - Photo UI v2: stock-like PHOTO/VIDEO segmented switch, orange selection accent,
   viewfinder grid, safe-area insets, and a capture row with gallery thumb,
   centered shutter and flip-camera button.
@@ -64,11 +70,20 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Photo-first roadmap: saving/gallery, speed, smooth zoom, 25 MP RAW probe and UI
   redesign are P0; video is frozen.
 
+### Fixed
+
+- Preview counter-rotation now matches the saved still in landscape. The previous
+  formula put the preview 90° sideways while the JPEG was upright.
+- A gallery-refresh failure no longer strands the capture queue: the worker
+  releases its slot in `finally`, so the shutter and mode controls recover.
+
 ### Validation pending
 
-- MediaStore publication and logical 0.6–6× still zoom require a reconnected device.
-- 25 MP RAW (RAW_SENSOR 5888×4416) probe not yet run.
-- Photo quality baseline and latency numbers not yet measured.
+- Photo quality baseline and latency numbers.
+- Portrait layout: the app still uses `sensorLandscape`; when the phone is held
+  portrait the preview and stills are sideways until UI-302.
+- CAP-301 queue-full feedback: the shutter disables at three shots; there is no
+  explicit "full" status yet.
 
 ## [0.4.0-alpha.1] ? 2026-10-22
 

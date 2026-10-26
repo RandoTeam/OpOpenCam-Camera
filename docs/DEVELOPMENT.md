@@ -130,10 +130,11 @@ Full reference: [PHOTO_UI.md](PHOTO_UI.md#stock-camera-layout-reference-2026-10-
   time.
 - Publish through MediaStore; a failed shot must not leave a fake gallery entry.
 
-Current state: prototype in `feat/background-capture`. Three rapid JPEG taps and
-three rapid HDR taps each produced three files; the queue is serial and the UI
-stays responsive. The landscape `PHOTO/VIDEO` guard is still missing, and the
-branch is not merged.
+Current state: implemented and device-validated (2026-10-26). Three rapid JPEG
+taps and three rapid HDR taps each produced three files; the queue is serial, the
+UI stays responsive, mode/lens/format/PHOTO-VIDEO are blocked, and the pending
+count is shown. Queue-full feedback is limited to the disabled shutter. Portrait
+orientation is not fixed here; it depends on UI-302 unlocking the activity.
 
 ## 9. Current priorities
 

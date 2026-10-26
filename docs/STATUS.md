@@ -15,13 +15,18 @@ core is accepted; 5K/6K/8K and HDR/Dolby are later workstreams.
 - **UI-301 merged (`79d2144`):** physical rotation detection; the standby screen
   follows the device. The main camera UI is still `sensorLandscape`; the portrait
   layout is not implemented.
-- **Preview orientation fix (uncommitted, `feat/background-capture`):** the
-  preview stream is 90° offset relative to the JPEG stream. The preview now uses
-  display counter-rotation; the preview and a saved still match in the same pose.
-- **CAP-301 prototype (uncommitted, `feat/background-capture`):** bounded queue +
-  serial worker; 3 rapid JPEG taps and 3 rapid HDR taps each saved three files.
-  The UI stays responsive. The landscape `PHOTO/VIDEO` guard is still missing and
-  the branch is not merged.
+- **Preview orientation fix (merged with CAP-301):** the preview uses display
+  counter-rotation and matches the saved still in landscape. In portrait the app
+  is still `sensorLandscape`, so the preview and still remain sideways; UI-302
+  must unlock orientation.
+- **CAP-301 implemented and device-validated:** bounded queue + serial worker;
+  3 rapid JPEG taps and 3 rapid HDR taps each saved three files. The UI stayed
+  responsive, mode/lens/format/PHOTO-VIDEO were blocked, and
+  `Processing HDR… · N queued` was shown. Merged. Queue-full feedback is limited
+  to the disabled shutter; portrait orientation remains UI-302 work.
+- **2026-10-26 device test:** the phone was held portrait while the app stayed
+  landscape, reproducing the sideways preview/still. This is the UI-302 blocker,
+  not a queue regression.
 - **UI-302 reference captured:** eight stock screenshots (photo/video/Portrait/
   Master, portrait + landscape) prove the single rotated-canvas model; see
   [PHOTO_UI.md](PHOTO_UI.md#stock-camera-layout-reference-2026-10-26). UI-302 is
