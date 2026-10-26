@@ -10,6 +10,24 @@
 zoom and lens hand-off. Video remains an experimental 4K feature until the photo
 core is accepted; 5K/6K/8K and HDR/Dolby are later workstreams.
 
+## 2026-10-26 UI/capture update
+
+- **UI-301 merged (`79d2144`):** physical rotation detection; the standby screen
+  follows the device. The main camera UI is still `sensorLandscape`; the portrait
+  layout is not implemented.
+- **Preview orientation fix (uncommitted, `feat/background-capture`):** the
+  preview stream is 90° offset relative to the JPEG stream. The preview now uses
+  display counter-rotation; the preview and a saved still match in the same pose.
+- **CAP-301 prototype (uncommitted, `feat/background-capture`):** bounded queue +
+  serial worker; 3 rapid JPEG taps and 3 rapid HDR taps each saved three files.
+  The UI stays responsive. The landscape `PHOTO/VIDEO` guard is still missing and
+  the branch is not merged.
+- **UI-302 reference captured:** eight stock screenshots (photo/video/Portrait/
+  Master, portrait + landscape) prove the single rotated-canvas model; see
+  [PHOTO_UI.md](PHOTO_UI.md#stock-camera-layout-reference-2026-10-26). UI-302 is
+  not implemented.
+- **UI-303 / UI-304:** not started.
+
 ## Verified on device
 
 | Feature | Evidence |
@@ -86,6 +104,9 @@ local and are not committed. Protocol: [lab/](lab/).
   Device-validated in landscape: 3x/6x physical tele, 0.6x ultra-wide, JPEG/RAW50
   upright, HDR 4096x3072 upright. Remaining: front/video orientation, pinch
   gesture, portrait crop and final visual polish.
+  **Known mismatch:** this is not the stock layout; UI-302 replaces it with one
+  portrait-coordinate canvas rotated by the display rotation. Portrait layout is
+  not implemented yet.
 - Neutral DNG to JPEG renderer: integrated into the in-app gallery and
   device-validated on a 50 MP DNG (9.4 s, 8192x6144). Tone/white-balance
   calibration is still needed; the neutral output is intentionally flat.

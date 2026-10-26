@@ -11,10 +11,12 @@ Compose UI. Public source only; vendor research stays private.
 Read before changing anything:
 
 1. [STATUS.md](STATUS.md) — what is actually verified.
-2. [ROADMAP.md](ROADMAP.md) — what to do next.
-3. [PIPELINE.md](PIPELINE.md) / [ARCHITECTURE.md](ARCHITECTURE.md) — how it works.
-4. [TESTING.md](TESTING.md) — how to prove it.
-5. [DECISIONS/](DECISIONS/) — why earlier choices were made.
+2. [DEVELOPMENT.md](DEVELOPMENT.md) — build, device workflow and current UI/capture
+   model.
+3. [ROADMAP.md](ROADMAP.md) — what to do next.
+4. [PIPELINE.md](PIPELINE.md) / [ARCHITECTURE.md](ARCHITECTURE.md) — how it works.
+5. [TESTING.md](TESTING.md) — how to prove it.
+6. [DECISIONS/](DECISIONS/) — why earlier choices were made.
 
 If a document disagrees with reality, update the document in the same PR.
 
@@ -214,6 +216,41 @@ A task is done when all are true:
   [FEATURE_PARITY.md](FEATURE_PARITY.md) and the matching backlog ID.
 - **Stock camera:** if you disable it for a test, re-enable it and record the
   command in the PR.
+
+## 5.1 Current UI and capture rules (2026-10-26)
+
+These are binding until the related backlog items are closed.
+
+### UI parity with the stock camera
+
+- The stock camera uses **one layout in phone coordinates**, not two reflowed
+  layouts. Rotating the landscape reference by 90 degrees maps every control onto
+  the portrait reference.
+- Implement the screen as a portrait-coordinate canvas (`1080x2376`) rotated by
+  the display rotation. Control positions stay fixed relative to the phone; do
+  not move them to other edges when the device turns.
+- Counter-rotate only glyphs that must stay readable: settings icons, zoom
+  numbers, shutter/flip/gallery, quick toggles. Do **not** counter-rotate the
+  `PHOTO/VIDEO/PORTRAIT/MASTER` labels; they run along the rail.
+- Fit the preview to the sensor aspect, never stretch it:
+  4:3 for photo/portrait/master, 16:9 for video. Black bars/rails are part of the
+  stock layout.
+- The current `sensorLandscape` UI is a known mismatch. Do not claim UI-302 is
+  done until all four rotations are device-validated against the stock reference.
+- Stock reference screenshots stay in `C:\Temp\opencode\stock-ref` (local, not
+  committed) because they contain personal content.
+
+### Background capture (CAP-301)
+
+- Use a bounded queue and a serial worker off the UI thread. The shutter and mode
+  controls must return immediately; no full-screen blocking saving overlay.
+- Block mode, lens, format and `PHOTO/VIDEO` changes while the queue is non-empty.
+  Check the landscape `ModeSegment` as well as the portrait fallback.
+- Store orientation with the job; process each shot with its tap-time orientation.
+- Show the pending count and the result of each shot. A failed shot must not leave
+  a fake gallery entry.
+- CAP-301 is a prototype in `feat/background-capture`; it is not merged and the
+  landscape `PHOTO/VIDEO` guard is still missing.
 
 ## 6. Documentation rules
 

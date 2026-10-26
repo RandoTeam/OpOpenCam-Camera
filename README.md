@@ -113,6 +113,26 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). AI agents must also read
 [docs/AGENTS.md](docs/AGENTS.md). Use Conventional Commits, keep PRs focused, and
 never commit personal photos, device serials or keystores.
 
+## 💖 Support the Solo Developer
+
+This project is created, developed, and maintained completely independently by a single engineer dedicated to digital sovereignty, open-source intelligence, and private on-device technologies. If this project empowers your workflows, assists your travels, or inspires your research, your contribution directly funds physical test devices, development hardware, and continuous updates.
+
+### 🪙 Worldwide Support (Direct Cryptocurrency)
+*Decentralized, zero tracking, works globally.*
+
+| Asset | Network | Address |
+| :--- | :--- | :--- |
+| **USDT** | TRC-20 | `TY1j2N8x4K7b9vL3mP5qR8sW2tU4xZ6y8A` |
+| **USDT / USDC** | ERC-20 (Ethereum) | `0xfca2fc261d4f23768a04ec49c3448278cdf17c2b` |
+| **Bitcoin (BTC)** | Native SegWit | `bc1qd5s9dwvyvlv320ynluk66zpd0p24knzxrjzwvr` |
+| **Ethereum (ETH)** | ERC-20 | `0xfca2fc261d4f23768a04ec49c3448278cdf17c2b` |
+
+### 💳 Direct Banking & Regional Transfers
+- **T-Bank Money Collection** *(Russia & CIS / SBP & Cards)*: [www.tbank.ru/cf/9YuuZydrQlI](https://www.tbank.ru/cf/9YuuZydrQlI)  
+  *Direct 1-click transfer via Fast Payments System (SBP) or Russian bank cards.*
+- **Kaspi Bank** *(Kazakhstan & Central Asia)*: `+7 707 390-30-49`  
+  *Direct transfer via Kaspi Gold by phone number.*
+
 ## License
 
 MIT for the original code. Third-party dependencies and trademarks are covered by
