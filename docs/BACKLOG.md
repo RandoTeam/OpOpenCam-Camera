@@ -30,18 +30,19 @@ IDs are stable; use them in branches (`feat/video-101-...`). One task per PR.
 
 ## User-fixed camera UX backlog (2026-10-24)
 
-Recorded from user feedback. These are **plan items only**; implementation has
-not started. Suggested order after the current photo-quality work:
+Recorded from user feedback. Status is tracked per row: UI-301 is merged, CAP-301
+is a prototype in `feat/background-capture`, and UI-302/303/304 are not started.
+Suggested order:
 
-1. orientation / in-place rotation
-2. background capture and processing
-3. zoom readout and zoom gesture
+1. finish CAP-301
+2. UI-302 stock rotating canvas
+3. UI-303 / UI-304
 
 | ID | Task | Acceptance |
 |---|---|---|
-| UI-301 | Orientation detection and standby rotation | The app detects display rotation 0/90/180/270. The idle/standby screen rotates with the device instead of staying in one orientation. No portrait lock or cinematic letterbox. |
-| UI-302 | In-place control rotation with stock layout parity | On rotation, controls must not migrate to other edges or reflow. Each control keeps its stock-camera screen position; only the controls that need it rotate their glyph/label in place. The PHOTO/VIDEO switch and similar fixed controls do not rotate. The preview must not be stretched full-screen behind the buttons. Use the stock camera in the same rotated state as the reference. |
-| CAP-301 | Background capture/processing queue | Shutter and mode controls return immediately. HDR/RAW capture, fusion, encoding and saving run on a worker; repeated taps queue shots instead of blocking. The UI stays responsive, with per-shot progress and failure states. Stock-like behavior: the user can keep shooting while the previous shot processes. |
+| UI-301 | Orientation detection and standby rotation | **Merged (`79d2144`).** Physical rotation 0/90/180/270 is detected and the standby screen follows it. The main camera UI is still `sensorLandscape` until UI-302, so the portrait layout is not complete. |
+| UI-302 | Stock rotating-canvas layout | **Reference captured 2026-10-26.** One layout in portrait coordinates (`1080x2376`) rotated by the display rotation; controls keep their stock positions relative to the phone and do not reflow. Counter-rotate only readable glyphs (settings icons, zoom numbers, shutter/flip/gallery, quick toggles); `PHOTO/VIDEO/PORTRAIT/MASTER` labels stay along the rail. Preview letterboxed 4:3 (photo/portrait/master) or 16:9 (video), never stretched. Validate 0/90/180/270 against the stock screenshots. |
+| CAP-301 | Background capture/processing queue | Shutter and mode controls return immediately. HDR/RAW capture, fusion, encoding and saving run on a worker; repeated taps queue shots instead of blocking. The UI stays responsive, with per-shot progress and failure states. Block mode/lens/format and `PHOTO/VIDEO` changes while the queue is non-empty; show the pending count; store the tap-time orientation; no full-screen saving overlay. **Prototype:** 3 JPEG / 3 HDR queued and saved; landscape `PHOTO/VIDEO` guard still missing; not merged. |
 | UI-303 | Zoom readout: magnification vs focal length | Add a setting to show zoom as `0.6/1/2/3/6x` or as professional millimetre equivalents (`15/23/48/73/146 mm`). The label must reflect the active lens/crop, not a fake value. |
 | UI-304 | Long-press zoom arc | Long-pressing the zoom control opens a semicircular/arc dial for smooth zoom across lenses. Dragging zooms continuously; releasing keeps the value; it must not trigger the shutter or move other controls. |
 

@@ -15,6 +15,7 @@ matches your role.
 | [ROADMAP.md](ROADMAP.md) | Now / next / later milestones and acceptance criteria |
 | [BACKLOG.md](BACKLOG.md) | Prioritized task list with IDs and dependencies |
 | [AGENTS.md](AGENTS.md) | Rules for AI agents working on the project |
+| [DEVELOPMENT.md](DEVELOPMENT.md) | Build, device workflow, current UI/capture model and troubleshooting |
 | [TESTING.md](TESTING.md) | Test pyramid, device matrix and evidence requirements |
 | [lab/](lab/) | Stock-camera ground-truth lab and specialist-camera checklist |
 | [QUALITY.md](QUALITY.md) | Image-quality contract and comparison protocol |
@@ -37,8 +38,8 @@ matches your role.
 CONTRIBUTING → TESTING.
 
 **AI agent:** start at the repository root `AGENTS.md` (short pointer), then read
-AGENTS → STATUS → FEATURE_PARITY → ROADMAP → PIPELINE → TESTING. Follow the workflow
-and Definition of Done in AGENTS.md.
+DEVELOPMENT → STATUS → FEATURE_PARITY → ROADMAP → PIPELINE → TESTING. Follow the
+workflow and Definition of Done in AGENTS.md.
 
 **Release manager:** RELEASING → CI → STATUS → CHANGELOG.
 

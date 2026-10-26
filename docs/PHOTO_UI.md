@@ -25,7 +25,7 @@ dead icons or dead tabs.
 │   ⚡    EV    ◐    ◎    ✿      ⋯    │  top bar, capability-gated
 │   12 MP                              │  format badge → FormatSheet
 │                                      │
-│              PREVIEW                 │  one SurfaceView, full-bleed
+│              PREVIEW                 │  fitted to 4:3/16:9, never stretched
 │                                      │
 │         0.6   1   2   3   6          │  zoom rail
 │                                      │
@@ -44,6 +44,72 @@ dead icons or dead tabs.
   EV, filter, motion or macro icons.
 - Use safe-drawing insets, 48 dp targets and gradient scrims. The shutter is white
   in Photo and red in Video; orange is selection accent only.
+
+## Stock camera layout reference (2026-10-26)
+
+Eight stock screenshots were captured on the device: photo, video, Portrait and
+Master, each in portrait and landscape. The decisive finding: **stock does not
+reflow between portrait and landscape**. It keeps one layout in phone
+coordinates and rotates the whole canvas; the apparent movement is the phone
+turning, not the controls changing sides.
+
+Proof: rotate the landscape photo screenshot 90° clockwise and every control maps
+onto the portrait screenshot - toolbar, preview, mode strip, shutter row, zoom
+row and quick toggles.
+
+### Rotation and glyph rules
+
+- Design the screen in portrait coordinates (`1080x2376`) and rotate the whole
+  canvas by the display rotation. Positions stay fixed relative to the phone.
+- Counter-rotate only glyphs that must stay readable: settings icons, zoom
+  numbers, shutter/flip/gallery, quick toggles.
+- Do **not** counter-rotate `PHOTO/VIDEO/PORTRAIT/MASTER`; the labels run along
+  the rail and are vertical in landscape by design.
+- Fit the preview to the sensor aspect. A stretched full-screen preview is a
+  bug, not a style.
+
+### Preview geometry (stock, device pixels)
+
+| Mode | Portrait | Landscape |
+|---|---|---|
+| Photo / Portrait / Master | `1080x1440` (4:3), `y=299..1739` | `1440x1080` (4:3), `x=300..1739` |
+| Video | `1080x1920` (16:9), `y=299..2219` | `1920x1080` (16:9), `x=300..2219` |
+
+### Portrait-coordinate anchors (stock)
+
+| Element | Position |
+|---|---|
+| Top toolbar | `y≈60..180`, horizontal |
+| Preview | `x=0..1080`, `y=299..1739` (4:3) or `y=299..2219` (16:9 video) |
+| Quick toggles | right edge inside the preview, vertical |
+| Zoom row | inside the preview bottom, `y≈1515`, horizontal `0.6/1/2/3/6` |
+| Mode strip | `y≈1810`, horizontal |
+| Shutter row | `y≈2050`: gallery thumb left, shutter centre, flip right |
+
+Landscape mapping (clockwise): `(x', y') = (y, 1080 - x)`. The top toolbar becomes
+the left rail, the mode strip becomes the right vertical rail, the zoom row
+becomes the inner-right vertical rail, and the shutter row becomes the right edge
+(thumb bottom, shutter centre, flip top).
+
+### Mode-specific notes
+
+- **Photo (01/02):** flash, EV, macro, motion, filter, menu; `0.6-6x`; orange
+  shutter.
+- **Video (03/04):** 16:9 preview; HDR/4K60; red shutter; zoom, mode strip and
+  shutter overlay the lower/right preview.
+- **Portrait (05/06):** `Готово`; `f/7.1` + `1/2/3x`; same skeleton.
+- **Master (07/08):** JPG, EV, Auto/Pro, layers; `0.6-6x`.
+
+### UI-302 acceptance
+
+- One rotated canvas, no per-orientation reflow.
+- Stock positions above; no arbitrary migration to other edges.
+- Only the listed glyphs counter-rotate; mode labels stay along the rail.
+- Preview letterboxed to 4:3/16:9; no full-screen stretch.
+- Validate 0/90/180/270 against the stock reference on the device.
+
+The reference screenshots stay in `C:\Temp\opencode\stock-ref` and are **not**
+committed because they contain personal content.
 
 ## Format sheet
 
@@ -67,7 +133,7 @@ sheet footnote with a reason.
 | Permission | dedicated screen; Allow / Open settings |
 | Starting | black preview, shutter disabled, "Starting camera…" |
 | Switching | keep last preview; small spinner; disable shutter/mode switch |
-| Capturing | shutter shrinks, haptic, duplicate taps ignored |
+| Capturing | shutter returns immediately; taps queue in the background worker; show the pending count |
 | Saving RAW/HDR | progress + size; keep screen awake |
 | Saved | thumbnail updates; snackbar "Saved · RAW 50" |
 | Error | snackbar, delete partial, no fake gallery entry |
@@ -160,14 +226,19 @@ Still to do in the next visual pass:
 - validate portrait/landscape layout, touch targets and haptics on the device;
 - device-test the physical-lens presets and the fallback path.
 
-### Landscape-first device pass (2026-10-24)
+### Landscape-first device pass (2026-10-24, superseded)
 
-The stock camera is landscape on this device, and the first device pass showed
-that a portrait-locked app produced sideways previews and stills. The app now
-uses `sensorLandscape` and a `TextureView` preview:
+> **Superseded 2026-10-26.** The stock camera supports both orientations and uses
+> one portrait-coordinate canvas rotated with the device. The `sensorLandscape`
+> layout below was an intermediate pass; do not extend it. UI-302 replaces it
+> with the single-canvas model above.
 
-- preview rotation follows the physical display; landscape fills the screen,
-  portrait fit is retained for a future portrait-crop mode;
+The first device pass assumed the stock camera was landscape-only and that a
+portrait-locked app produced sideways previews and stills. The app used
+`sensorLandscape` and a `TextureView` preview:
+
+- preview rotation follows the display; the landscape preview was max-scaled to
+  fill (later found to be a crop, not the stock letterbox);
 - JPEG/DNG orientation is computed from the sensor and display rotation and
   applied through a new JNI setter;
 - landscape controls: gallery/shutter/flip on the left, zoom stops on the
@@ -188,12 +259,17 @@ letterboxing.
 
 ## Orientation detection - step 1 (2026-10-24)
 
-`OrientationEventListener` now reports the physical device rotation separately
-from the locked landscape activity. The standby overlay content and the preview
-transform use that rotation, so they no longer stay in the old orientation when
-the phone is turned.
+`OrientationEventListener` reports the physical device rotation separately from
+the locked landscape activity. The standby overlay uses that rotation.
 
-This step deliberately does **not** reflow the camera controls. The next step
-(UI-302) will rotate the relevant control glyphs in place while preserving the
-stock positions; the PHOTO/VIDEO switch and similar fixed controls will not be
-rotated. Device validation requires turning the phone while the app is open.
+The preview uses the display rotation, not the raw sensor angle: the preview
+stream arrives 90° rotated relative to the JPEG stream, and using the physical
+angle made a phone lying flat report portrait and flip the preview. The preview
+counter-rotation is `(360 - displayRotation * 90) % 360`; the JPEG orientation
+remains `(sensorOrientation - displayRotation * 90) % 360`.
+
+This step did not implement the stock layout. UI-302 replaces the fixed
+`sensorLandscape` layout with one portrait-coordinate canvas rotated by the
+display rotation; only readable glyphs are counter-rotated, and the mode labels
+stay along the rail. Device validation requires turning the phone through
+0/90/180/270 while the app is open.
