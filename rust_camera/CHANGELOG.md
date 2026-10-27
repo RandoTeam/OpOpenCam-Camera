@@ -11,6 +11,28 @@ All notable changes to the OpOpenCam Rust camera are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1-beta.1] — 2026-10-27
+
+### Added
+
+- Stock-anchored chrome on the portrait canvas: zoom row is a bare-label row at
+  canvas `y=1640..1663` with slots at `x=324/432/540/648/756` and a `96px`
+  selection scrim; the mode rail is `y=1740..1920` with `112px` between text
+  bounds, a `216x81` pill and caret for PHOTO/VIDEO, and MASTER/PORTRAIT/MORE
+  rendered as honest disabled labels; the capture deck uses the stock centres
+  `(180,2061)`, `(540,2061)`, `(900,2061)`.
+- Video preview is now `1080x1920` (16:9 on screen) at `y=300`, photo stays
+  `1080x1440`.
+- `canvasPx()` documents the 1dp = 3px mapping of the 1080x2376 canvas.
+
+### Known limitations
+
+- This build is **not device-verified**: the phone was disconnected before the
+  anchored chrome could be checked. The legacy flow layout is compiled out with
+  `if (false)` and must be deleted after the device pass.
+- Header rail (flash/EV/live/sports/macro/settings cells) and quick toggles are
+  not implemented yet; functions without a core are not faked.
+
 ## [0.5.0-beta.1] — 2026-10-27
 
 ### Added

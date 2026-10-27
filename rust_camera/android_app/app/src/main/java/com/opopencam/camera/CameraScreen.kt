@@ -57,12 +57,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -730,11 +732,13 @@ fun CameraScreen() {
             } else {
                 // Stock anchor: the photo preview starts at canvas y=300px and
                 // is 1080x1440 (3:4). 300px = 100dp on this 480dpi canvas.
+                // Stock preview: photo 1080x1440 (3:4), video 1080x1920 (9:16),
+                // both starting at canvas y=300px.
                 Modifier
                     .fillMaxWidth()
-                    .aspectRatio(3f / 4f)
+                    .aspectRatio(if (videoMode) 9f / 16f else 3f / 4f)
                     .align(Alignment.TopCenter)
-                    .offset(y = 100.dp)
+                    .offset(y = canvasPx(300f))
             }).pointerInput(cameraId) {
                     detectTransformGestures { _, _, zoomChange, _ ->
                         if (queuedCaptures == 0 && !videoBusy && !switching && !recording) {
@@ -831,7 +835,10 @@ fun CameraScreen() {
             }
         }
 
-        if (!landscape) {
+        // Replaced by the stock-anchored chrome below (UI-303). Kept compiled out
+        // for one release so the old flow layout cannot render by accident; the
+        // block is removed in the cleanup commit.
+        if (false) {
         Column(
             modifier = if (landscape) {
                 Modifier
@@ -947,6 +954,74 @@ fun CameraScreen() {
             }
         }
 
+        }
+
+        // ---- Stock-anchored chrome (canvas 1080x2376 px, 1dp = 3px) ----
+        StockModeRail(
+            videoMode = videoMode,
+            enabled = queuedCaptures == 0 && !recording && !videoBusy,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = canvasPx(1740f)),
+        ) { isVideo ->
+            if (queuedCaptures == 0 && !recording && !videoBusy) {
+                videoMode = isVideo
+                status = if (isVideo) {
+                    if (video4k16) "Video 4K 16:9 \u00b7 60 fps" else "Video 4K 4:3 \u00b7 30 fps"
+                } else {
+                    "Photo mode"
+                }
+            } else if (queuedCaptures > 0) {
+                status = busyMessage()
+            }
+        }
+
+        StockZoomRow(
+            zoom = zoom,
+            enabled = queuedCaptures == 0 && !videoBusy && !switching && !recording,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = canvasPx(1640f)),
+        ) { setZoomPreset(it) }
+
+        // Capture deck: stock centres (180,2061), (540,2061), (900,2061).
+        Box(Modifier.fillMaxSize()) {
+            Box(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .offset(x = canvasPx(108f), y = canvasPx(1989f))
+            ) {
+                LatestMediaThumbnail(context, galleryItems.firstOrNull()) {
+                    showGallery = true
+                    lastInteraction++
+                }
+            }
+            Box(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .offset(y = canvasPx(1944f))
+            ) {
+                ShutterButton(
+                    capturing = capturing,
+                    recording = recording,
+                    videoBusy = videoBusy,
+                    videoMode = videoMode,
+                    enabled = if (videoMode) !videoBusy else queuedCaptures < MAX_CAPTURE_QUEUE && !switching,
+                    onClick = { onShutter() }
+                )
+            }
+            Box(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = -canvasPx(108f), y = canvasPx(1989f))
+            ) {
+                FlipCameraButton(
+                    enabled = queuedCaptures == 0 && !recording && !videoBusy && !switching
+                ) {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    if (cameraId == 1) restart(0, captureMode) else restart(1, MODE_JPEG12)
+                }
+            }
         }
 
         if (landscape) {
@@ -1088,6 +1163,111 @@ fun CameraScreen() {
             StandbyOverlay {
                 standby = false
                 lastInteraction++
+            }
+        }
+    }
+}
+
+/** Converts a stock canvas pixel (1080x2376 reference) to dp on the 480 dpi host. */
+private fun canvasPx(px: Float) = (px / 3f).dp
+
+/**
+ * Stock zoom row: bare labels, not pills. Slot centres at canvas x
+ * 324/432/540/648/756 and centre line y=1651 (the caller offsets the row).
+ */
+@Composable
+private fun StockZoomRow(
+    zoom: Float,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onSelect: (Float) -> Unit,
+) {
+    val stops = listOf(0.6f to "0.6", 1f to "1\u00d7", 2f to "2\u00d7", 3f to "3\u00d7", 6f to "6\u00d7")
+    Row(modifier = modifier, horizontalArrangement = Arrangement.Center) {
+        stops.forEach { (value, label) ->
+            val selected = zoom == value
+            Box(
+                modifier = Modifier
+                    .size(36.dp) // stock hit slot: 108 px
+                    .clickable(enabled = enabled) { onSelect(value) },
+                contentAlignment = Alignment.Center,
+            ) {
+                if (selected) {
+                    Box(
+                        Modifier
+                            .size(32.dp) // stock scrim circle: 96 px
+                            .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                    )
+                }
+                Text(
+                    text = label,
+                    color = if (selected) Accent else Color.White,
+                    fontSize = 11.sp,
+                    modifier = Modifier.upright(),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Stock mode rail: canvas y 1740..1920, text centre y=1830, 112 px between text
+ * bounds, selected content centred on x=540. Labels rotate with the canvas; only
+ * PHOTO and VIDEO get the pill and caret.
+ */
+@Composable
+private fun StockModeRail(
+    videoMode: Boolean,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onSelect: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clipToBounds(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val gap = Modifier.width(canvasPx(112f))
+        Text("МАСТЕР", color = Color.White.copy(alpha = 0.35f), fontSize = 15.sp)
+        Spacer(gap)
+        ModeRailItem("ВИДЕО", videoMode, enabled) { onSelect(true) }
+        Spacer(gap)
+        ModeRailItem("ФОТО", !videoMode, enabled) { onSelect(false) }
+        Spacer(gap)
+        Text("ПОРТРЕТ", color = Color.White.copy(alpha = 0.35f), fontSize = 15.sp)
+        Spacer(gap)
+        Text("ЕЩЕ", color = Color.White.copy(alpha = 0.35f), fontSize = 15.sp)
+    }
+}
+
+@Composable
+private fun ModeRailItem(label: String, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(canvasPx(40.5f)))
+            .background(if (selected) Color(0xFF1E1E1E) else Color.Transparent)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = canvasPx(18f), vertical = canvasPx(12f)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            color = if (selected) Accent else Color.White,
+            fontSize = 15.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+        )
+        if (selected) {
+            Spacer(Modifier.width(canvasPx(6f)))
+            Canvas(Modifier.size(canvasPx(16f), canvasPx(11f))) {
+                val path = Path().apply {
+                    moveTo(size.width / 2f, 0f)
+                    lineTo(size.width, size.height)
+                    lineTo(0f, size.height)
+                    close()
+                }
+                drawPath(path, Accent)
             }
         }
     }
