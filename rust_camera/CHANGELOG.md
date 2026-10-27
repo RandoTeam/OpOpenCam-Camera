@@ -11,6 +11,32 @@ All notable changes to the OpOpenCam Rust camera are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.5-beta.1] ? 2026-10-28
+
+### Changed
+
+- Live Photo no longer holds the shutter or the still queue: the still is
+  published immediately and the 2.5 s clip is assembled by a separate worker.
+- The clip is skipped while stills are queued, so a burst never fails because of
+  a session restart. Those frames keep a plain still.
+
+### Added
+
+- Shutter latency tracing (`OpOpenCamPerf`) and clip assembly timing
+  (`OpOpenCamLive`).
+- Key management procedure (`docs/KEY_MANAGEMENT.md`), expected certificate file
+  (`rust_camera/EXPECTED_CERT_SHA256`) and `check_signing.py`, which the release
+  workflow now runs.
+
+### Measured on device
+
+- Five shutter taps 250 ms apart: five files saved, taps accepted throughout,
+  preview kept updating (screenshot shows `Capturing? ? 2 queued`), no ANR.
+- Still latency 0.6?1.7 s per frame, queued serially; UI never blocked.
+- **Not met yet:** Live on every burst frame. With the current session model the
+  clip requires a recording session, so the burst guard keeps plain stills. The
+  3+3 s pre-roll ring with a persistent preview+encoder session is the next step.
+
 ## [0.5.4-beta.1] ? 2026-10-28
 
 ### Added

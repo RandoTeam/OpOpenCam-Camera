@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Environment
+import android.os.SystemClock
 import android.view.Surface
 import android.view.TextureView
 import android.widget.Toast
@@ -115,10 +116,20 @@ private data class CaptureJob(
     val jpegOrientation: Int,
     /** Live Photo: keep a short clip and mux it into the still (Motion Photo v1). */
     val live: Boolean = false,
+    /** Tap time, used to measure shutter-to-file latency. */
+    val tappedAt: Long = android.os.SystemClock.elapsedRealtime(),
 )
 
 /** Post-capture clip length for Live Photo v1 (pre-roll ring comes later). */
 private const val LIVE_PHOTO_CLIP_MS = 2_500L
+
+/** A still waiting for its Motion Photo clip. */
+private data class LiveJob(
+    val jpeg: File,
+    val uri: android.net.Uri?,
+    val cameraId: Int,
+    val mode: Int,
+)
 
 private const val MODE_JPEG12 = 0
 private const val MODE_JPEG50 = 1
@@ -175,6 +186,9 @@ fun CameraScreen() {
     var queuedCaptures by remember { mutableIntStateOf(0) }
     var processingStatus by remember { mutableStateOf("") }
     val captureQueue = remember { Channel<CaptureJob>(capacity = MAX_CAPTURE_QUEUE) }
+    // Live clips are muxed by a separate worker so a 2.5 s recording never keeps
+    // the shutter, the still queue or the preview waiting.
+    val liveQueue = remember { Channel<LiveJob>(capacity = 4) }
     var zoom by remember { mutableStateOf(1f) }
     var sensorZoom by remember { mutableStateOf(1f) }
     var cameraId by remember { mutableStateOf(0) }
@@ -551,20 +565,16 @@ fun CameraScreen() {
         val ok = NativeBridge.nativeCapturePhoto(file.absolutePath)
         return when {
             ok -> {
-                // Live Photo: record a short clip, mux it into the JPEG and publish
-                // only the Motion Photo. If anything fails the plain still is kept.
-                val liveMessage = if (job.live && extension == "jpg") {
-                    finishLivePhoto(file, job)
-                } else {
-                    null
+                val uri = MediaStoreSaver.publishImage(context, file)
+                // The still is published immediately; the clip is assembled later
+                // by the separate worker, so the queue slot is released at once.
+                val queued = job.live && extension == "jpg" &&
+                    liveQueue.trySend(LiveJob(file, uri, job.cameraId, job.mode)).isSuccess
+                when {
+                    queued -> "Saved ${file.name} \u00b7 live queued"
+                    uri != null -> "Saved ${file.name} \u00b7 Gallery"
+                    else -> "Saved ${file.name} \u00b7 not indexed"
                 }
-                val publishFile = liveMessage?.second ?: file
-                val uri = MediaStoreSaver.publishImage(context, publishFile)
-                val base = when {
-                    uri != null -> "Saved ${publishFile.name} \u00b7 Gallery"
-                    else -> "Saved ${publishFile.name} \u00b7 not indexed"
-                }
-                liveMessage?.first?.let { base + " \u00b7 $it" } ?: base
             }
             effectiveMode == MODE_JPEG50 -> "50 MP JPEG unavailable \u2014 use RAW 50"
             else -> "Capture failed - see logcat"
@@ -653,6 +663,11 @@ fun CameraScreen() {
                 } catch (t: Throwable) {
                     result += " \u00b7 gallery refresh failed"
                 }
+                android.util.Log.i(
+                    "OpOpenCamPerf",
+                    "still mode=${job.mode} live=${job.live} " +
+                        "in ${SystemClock.elapsedRealtime() - job.tappedAt} ms",
+                )
             } finally {
                 // Always release the queue slot, even if gallery refresh or a
                 // future post-processing step throws. Otherwise the shutter and
@@ -665,6 +680,34 @@ fun CameraScreen() {
                 status = result + queuedSuffix(queuedCaptures)
             }
             Toast.makeText(context, result, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Live Photo assembler: one clip at a time, entirely off the shutter path.
+    LaunchedEffect(liveQueue) {
+        for (live in liveQueue) {
+            // Recording restarts the camera session, so skip the clip while more
+            // stills are waiting: a burst must never fail because of Live Photo.
+            // The plain still has already been published and stays valid.
+            if (queuedCaptures > 0) continue
+            val started = SystemClock.elapsedRealtime()
+            val assembled = withContext(Dispatchers.IO) {
+                finishLivePhoto(live.jpeg, CaptureJob(live.mode, live.cameraId, 0))
+            } ?: continue
+            val uri = withContext(Dispatchers.IO) {
+                MediaStoreSaver.publishImage(context, assembled.second)
+            }
+            if (uri != null) {
+                withContext(Dispatchers.IO) {
+                    live.uri?.let { runCatching { context.contentResolver.delete(it, null, null) } }
+                    live.jpeg.delete()
+                }
+                galleryItems = withContext(Dispatchers.IO) { listGalleryItems(context) }
+            }
+            android.util.Log.i(
+                "OpOpenCamLive",
+                "assembled in ${SystemClock.elapsedRealtime() - started} ms (${assembled.first})",
+            )
         }
     }
 
