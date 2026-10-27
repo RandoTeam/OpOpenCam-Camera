@@ -4,16 +4,39 @@ plugins {
     id 'org.jetbrains.kotlin.plugin.compose'
 }
 
+// Release signing: one project keystore shared by CI and local builds, so a
+// CI-published beta can be updated in place by a local build and vice versa.
+// The keystore and its passwords never enter the repository: locally they live
+// in android_app/keystore.properties (gitignored), on CI in GitHub Secrets.
+def keystorePropsFile = rootProject.file("keystore.properties")
+def keystoreProps = new Properties()
+if (keystorePropsFile.exists()) {
+    keystorePropsFile.withInputStream { keystoreProps.load(it) }
+}
+def releaseStore = System.getenv("OPOPENCAM_KEYSTORE") ?: keystoreProps["storeFile"]
+def hasReleaseSigning = releaseStore != null && !releaseStore.toString().trim().isEmpty()
+
 android {
     namespace 'com.opopencam.camera'
     compileSdk 36
+
+    signingConfigs {
+        release {
+            if (hasReleaseSigning) {
+                storeFile file(releaseStore)
+                storePassword System.getenv("OPOPENCAM_KEYSTORE_PASSWORD") ?: keystoreProps["storePassword"]
+                keyAlias System.getenv("OPOPENCAM_KEY_ALIAS") ?: keystoreProps["keyAlias"]
+                keyPassword System.getenv("OPOPENCAM_KEY_PASSWORD") ?: keystoreProps["keyPassword"]
+            }
+        }
+    }
 
     defaultConfig {
         applicationId "com.oneplus.camera"
         minSdk 29
         targetSdk 36
-        versionCode 8
-        versionName "0.5.1-beta.1"
+        versionCode 9
+        versionName "0.5.2-beta.1"
 
         ndk {
             abiFilters "arm64-v8a"
@@ -23,7 +46,10 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig signingConfigs.debug
+            // Falls back to the machine debug key only when no project keystore
+            // is configured (plain local experiments). CI and the release
+            // workflow always provide OPOPENCAM_KEYSTORE.
+            signingConfig hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
         }
     }
 

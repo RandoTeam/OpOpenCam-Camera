@@ -58,6 +58,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -76,7 +78,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
@@ -962,7 +966,8 @@ fun CameraScreen() {
             enabled = queuedCaptures == 0 && !recording && !videoBusy,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .offset(y = canvasPx(1740f)),
+                // Pill top 1789: centre 1830, matching the stock text line.
+                .offset(y = canvasPx(1789f)),
         ) { isVideo ->
             if (queuedCaptures == 0 && !recording && !videoBusy) {
                 videoMode = isVideo
@@ -981,7 +986,8 @@ fun CameraScreen() {
             enabled = queuedCaptures == 0 && !videoBusy && !switching && !recording,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .offset(y = canvasPx(1640f)),
+                // Slot height 108 px (36 dp); top 1597 puts the centres on 1651.
+                .offset(y = canvasPx(1597f)),
         ) { setZoomPreset(it) }
 
         // Capture deck: stock centres (180,2061), (540,2061), (900,2061).
@@ -1222,23 +1228,47 @@ private fun StockModeRail(
     modifier: Modifier = Modifier,
     onSelect: (Boolean) -> Unit,
 ) {
-    Row(
+    data class Item(
+        val label: String,
+        val selected: Boolean,
+        val clickable: Boolean,
+        val onClick: () -> Unit,
+    )
+
+    val items = listOf(
+        Item("МАСТЕР", false, false) {},
+        Item("ВИДЕО", videoMode, enabled) { onSelect(true) },
+        Item("ФОТО", !videoMode, enabled) { onSelect(false) },
+        Item("ПОРТРЕТ", false, false) {},
+        Item("ЕЩЕ", false, false) {},
+    )
+    // Stock rule: 112 px between text bounds and the selected item centred on
+    // canvas x=540. Centring the whole row instead moved PHOTO to ~706.
+    Layout(
         modifier = modifier
             .fillMaxWidth()
             .clipToBounds(),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        val gap = Modifier.width(canvasPx(112f))
-        Text("МАСТЕР", color = Color.White.copy(alpha = 0.35f), fontSize = 15.sp)
-        Spacer(gap)
-        ModeRailItem("ВИДЕО", videoMode, enabled) { onSelect(true) }
-        Spacer(gap)
-        ModeRailItem("ФОТО", !videoMode, enabled) { onSelect(false) }
-        Spacer(gap)
-        Text("ПОРТРЕТ", color = Color.White.copy(alpha = 0.35f), fontSize = 15.sp)
-        Spacer(gap)
-        Text("ЕЩЕ", color = Color.White.copy(alpha = 0.35f), fontSize = 15.sp)
+        content = {
+            items.forEach { item ->
+                ModeRailItem(item.label, item.selected, item.clickable, item.onClick)
+            }
+        },
+    ) { measurables, constraints ->
+        val gap = (112f / 3f * density).roundToInt()
+        val placeables = measurables.map { it.measure(Constraints()) }
+        val selectedIndex = items.indexOfFirst { it.selected }.coerceAtLeast(0)
+        var before = 0
+        for (i in 0 until selectedIndex) before += placeables[i].width + gap
+        val selectedCentre = before + placeables[selectedIndex].width / 2
+        val shift = (540f / 3f * density).roundToInt() - selectedCentre
+        val height = placeables.maxOfOrNull { it.height } ?: 0
+        layout(constraints.maxWidth, height) {
+            var x = shift
+            placeables.forEach { placeable ->
+                placeable.place(x, 0)
+                x += placeable.width + gap
+            }
+        }
     }
 }
 
@@ -1246,10 +1276,21 @@ private fun StockModeRail(
 private fun ModeRailItem(label: String, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(canvasPx(40.5f)))
-            .background(if (selected) Color(0xFF1E1E1E) else Color.Transparent)
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = canvasPx(18f), vertical = canvasPx(12f)),
+            // The stock pill is a background layer 216x81 px centred on the label.
+            // Drawing it behind keeps the 112 px gap between text bounds exact.
+            .drawBehind {
+                if (selected) {
+                    val w = 72.dp.toPx()
+                    val h = 27.dp.toPx()
+                    drawRoundRect(
+                        color = Color(0xFF1E1E1E),
+                        topLeft = Offset((size.width - w) / 2f, (size.height - h) / 2f),
+                        size = Size(w, h),
+                        cornerRadius = CornerRadius(h / 2f),
+                    )
+                }
+            },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -1259,7 +1300,8 @@ private fun ModeRailItem(label: String, selected: Boolean, enabled: Boolean, onC
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
         )
         if (selected) {
-            Spacer(Modifier.width(canvasPx(6f)))
+            // Stock caret sits 21 px right of the label.
+            Spacer(Modifier.width(canvasPx(21f)))
             Canvas(Modifier.size(canvasPx(16f), canvasPx(11f))) {
                 val path = Path().apply {
                     moveTo(size.width / 2f, 0f)
