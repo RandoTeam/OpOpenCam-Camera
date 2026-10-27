@@ -82,7 +82,7 @@ row and quick toggles.
 | Top toolbar | `y≈60..180`, horizontal |
 | Preview | `x=0..1080`, `y=299..1739` (4:3) or `y=299..2219` (16:9 video) |
 | Quick toggles | right edge inside the preview, vertical |
-| Zoom row | inside the preview bottom, `y≈1515`, horizontal `0.6/1/2/3/6` |
+| Zoom row | inside the preview bottom, `y=1651`, horizontal `0.6/1/2/3/6` |
 | Mode strip | `y≈1810`, horizontal |
 | Shutter row | `y≈2050`: gallery thumb left, shutter centre, flip right |
 

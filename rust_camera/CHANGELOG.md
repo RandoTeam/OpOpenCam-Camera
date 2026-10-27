@@ -11,6 +11,32 @@ All notable changes to the OpOpenCam Rust camera are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0-beta.1] — 2026-10-27
+
+### Added
+
+- Single rotating portrait canvas (`360x792dp`, `rotationZ = display rotation`)
+  with `requiredSize`, so the landscape window can no longer clamp and compress
+  the layout. Controls keep their stock position relative to the phone.
+- `LocalGlyphRotation` and `Modifier.upright()`: readable glyphs counter-rotate
+  in place; the header, status, zoom stops, PHOTO/VIDEO labels and the format
+  badge use it.
+- Settings entry with a persisted standby toggle (`standby_enabled`).
+- Preview re-open when returning from the stock camera, instead of keeping a
+  disconnected device that failed on the next capture.
+
+### Fixed
+
+- Preview was horizontally stretched by 1.78x (feature matching against stock:
+  `scaleX 0.570 / scaleY 1.009`). Removed the anisotropic matrix step; measured
+  after the fix: aspect ratio `1.0000`, residual `1.4px`.
+- Preview no longer rotates the frame 90 degrees in landscape; the stream is
+  already delivered in screen orientation.
+- Gallery thumbnails and the detail view ignored EXIF orientation and showed
+  correctly saved stills sideways.
+- Portrait preview now starts at the stock anchor `y=300px` instead of being
+  centred, so the control deck sits below the image as in the stock camera.
+
 ## [Unreleased]
 
 ### Added
