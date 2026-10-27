@@ -11,6 +11,26 @@ All notable changes to the OpOpenCam Rust camera are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.6-beta.1] ? 2026-10-28
+
+### Fixed
+
+- Live Photo regression: the assembler skipped every clip because it read the
+  live `queuedCaptures` counter, which still included the shot that produced the
+  job. The job now carries a snapshot (`waiting`) taken at enqueue time, so a
+  single shot always gets its clip; a burst still degrades to plain stills
+  instead of failing.
+- The preview surface is captured in the job at tap time instead of being
+  re-read later, so a lens/mode switch cannot mismatch the clip.
+- Skipped clips are logged with the reason.
+
+### Verified on device
+
+- Single shot with Live Photo: `clip=1969470`, `out=3464594`, assembled in
+  3373 ms; published `IMG_*MP.jpg` (3.46 MB) contains `MotionPhoto` and
+  `MicroVideoOffset`.
+- The fix does not change burst behaviour: rapid taps still save plain stills.
+
 ## [0.5.5-beta.1] ? 2026-10-28
 
 ### Changed

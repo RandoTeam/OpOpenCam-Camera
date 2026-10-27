@@ -129,6 +129,14 @@ private data class LiveJob(
     val uri: android.net.Uri?,
     val cameraId: Int,
     val mode: Int,
+    /** Preview surface at tap time; the live worker must not re-read a later one. */
+    val surface: Surface?,
+    /**
+     * Stills still waiting when this job was queued. Must be a snapshot: the
+     * global counter still includes the shot that produced this job, so reading
+     * it when the worker dequeues drops every clip, including a single shot.
+     */
+    val waiting: Int,
 )
 
 private const val MODE_JPEG12 = 0
@@ -504,8 +512,12 @@ fun CameraScreen() {
      * Returns (short note, file to publish) or null to fall back to the plain
      * still. The camera session is returned to still preview in every path.
      */
-    fun finishLivePhoto(jpegFile: File, job: CaptureJob): Pair<String, File>? {
-        val surface = currentSurface ?: return null
+    fun finishLivePhoto(
+        jpegFile: File,
+        job: CaptureJob,
+        previewSurface: Surface? = currentSurface,
+    ): Pair<String, File>? {
+        val surface = previewSurface ?: return null
         val mp4 = File(jpegFile.parentFile, "MOTION_${System.currentTimeMillis()}.mp4")
         val out = File(jpegFile.parentFile, jpegFile.nameWithoutExtension + "MP.jpg")
         val recorder = VideoRecorder(context)
@@ -568,8 +580,11 @@ fun CameraScreen() {
                 val uri = MediaStoreSaver.publishImage(context, file)
                 // The still is published immediately; the clip is assembled later
                 // by the separate worker, so the queue slot is released at once.
+                val waiting = (queuedCaptures - 1).coerceAtLeast(0)
                 val queued = job.live && extension == "jpg" &&
-                    liveQueue.trySend(LiveJob(file, uri, job.cameraId, job.mode)).isSuccess
+                    liveQueue.trySend(
+                        LiveJob(file, uri, job.cameraId, job.mode, currentSurface, waiting)
+                    ).isSuccess
                 when {
                     queued -> "Saved ${file.name} \u00b7 live queued"
                     uri != null -> "Saved ${file.name} \u00b7 Gallery"
@@ -689,10 +704,20 @@ fun CameraScreen() {
             // Recording restarts the camera session, so skip the clip while more
             // stills are waiting: a burst must never fail because of Live Photo.
             // The plain still has already been published and stays valid.
-            if (queuedCaptures > 0) continue
+            if (live.waiting > 0) {
+                android.util.Log.i(
+                    "OpOpenCamLive",
+                    "skipped: ${live.waiting} stills were waiting at tap time",
+                )
+                continue
+            }
             val started = SystemClock.elapsedRealtime()
             val assembled = withContext(Dispatchers.IO) {
-                finishLivePhoto(live.jpeg, CaptureJob(live.mode, live.cameraId, 0))
+                finishLivePhoto(
+                    live.jpeg,
+                    CaptureJob(live.mode, live.cameraId, 0),
+                    live.surface,
+                )
             } ?: continue
             val uri = withContext(Dispatchers.IO) {
                 MediaStoreSaver.publishImage(context, assembled.second)
