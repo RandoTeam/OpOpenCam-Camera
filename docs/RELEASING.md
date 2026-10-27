@@ -62,8 +62,8 @@ used different debug certificates and `adb install -r` failed with
   `OPOPENCAM_KEYSTORE_PASSWORD`, `OPOPENCAM_KEY_ALIAS`,
   `OPOPENCAM_KEY_PASSWORD`. The release workflow decodes the keystore and prints
   the certificate so the fingerprint can be compared with a local build.
-- Expected certificate: `CN=OpOpenCam Beta, O=RandoTeam, C=RU`,
-  SHA-256 `51:57:0d:2b:33:a2:c6:6e:c6:85:92:ae:6a:7c:2a:b5:28:ba:6a:6d:30:7e:0f:00:88:83:59:90:cb:88:0c:f2`.
+- Expected certificate: `CN=OpOpenCam Release, O=RandoTeam, C=RU`,
+  SHA-256 `2e:78:5e:f2:be:0b:ea:89:58:80:f0:35:cd:e6:85:06:b6:08:b7:81:b1:39:42:6f:1d:ec:35:1f:8e:90:d6:c`.
 
 Never commit the keystore, `keystore.properties` or the passwords.
 

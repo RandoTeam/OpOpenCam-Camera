@@ -11,6 +11,38 @@ All notable changes to the OpOpenCam Rust camera are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4-beta.1] ? 2026-10-28
+
+### Added
+
+- Live Photo toggle in the stock header cell (canvas `x=375..531`, glyph centre
+  `453,162`): dotted ring with a slash when off, orange ring with a filled centre
+  when on, state persisted across launches.
+- Live Photo capture (Google Motion Photo v1): after the still, a 2.5 s HEVC/AAC
+  clip is recorded, muxed into the JPEG by the Rust `assemble_motion_photo_to_file`
+  and published once as `IMG_*MP.jpg`. On any failure the plain still is kept.
+
+### Verified on device
+
+- XMP in the saved file: `GCamera:MotionPhoto="1"`, `MotionPhotoVersion="1"`,
+  `MicroVideoOffset="2347915"` matching the recorded clip, `video/mp4` container
+  item present. JPEG 1.43 MB + clip 2.35 MB -> 3.78 MB motion photo.
+- Toggle state shown in the header (`12 MP ? auto lens ? 1,0? ? LIVE`).
+
+### Known limitations
+
+- v1 is **post-roll only** (clip starts at the shutter). The 3+3 s pre-roll needs
+  the encoded-sample ring wired to the shutter.
+- Video recording restarts the camera session, so the preview blinks for a moment
+  after a Live Photo and the next shot waits for the clip.
+
+### Security
+
+- The project signing key was rotated after the previous keystore was lost to an
+  external cleanup of the temp folder. New certificate
+  `CN=OpOpenCam Release`, SHA-256 `2e785ef2?f8e90d6c`. Installing over a 0.5.3
+  build requires one uninstall.
+
 ## [0.5.3-beta.1] — 2026-10-27
 
 ### Fixed
