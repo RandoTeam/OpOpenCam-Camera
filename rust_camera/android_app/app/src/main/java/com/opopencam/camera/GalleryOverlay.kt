@@ -3,6 +3,7 @@ package com.opopencam.camera
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.os.Environment
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -209,7 +210,7 @@ fun GalleryOverlay(context: Context, onClose: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 val bitmap = remember(item.file.absolutePath) {
-                    if (item.isRaw) null else BitmapFactory.decodeFile(item.file.absolutePath)
+                    if (item.isRaw) null else decodeOriented(item.file)
                 }
                 if (bitmap != null) {
                     Image(
@@ -302,17 +303,43 @@ fun GalleryOverlay(context: Context, onClose: () -> Unit) {
     }
 }
 
+/**
+ * Decodes a JPEG and applies its EXIF orientation.
+ *
+ * BitmapFactory ignores EXIF, so a still saved with Orientation=6 was shown
+ * sideways in the grid and the detail view even though the file itself is correct.
+ */
+private fun decodeOriented(file: File, inSampleSize: Int = 1): Bitmap? {
+    val options = BitmapFactory.Options().apply { this.inSampleSize = inSampleSize }
+    val bitmap = BitmapFactory.decodeFile(file.absolutePath, options) ?: return null
+    val degrees = runCatching {
+        when (
+            android.media.ExifInterface(file.absolutePath).getAttributeInt(
+                android.media.ExifInterface.TAG_ORIENTATION,
+                android.media.ExifInterface.ORIENTATION_NORMAL,
+            )
+        ) {
+            android.media.ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+            android.media.ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+            android.media.ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+            else -> 0f
+        }
+    }.getOrDefault(0f)
+    if (degrees == 0f) return bitmap
+    val rotated = Bitmap.createBitmap(
+        bitmap, 0, 0, bitmap.width, bitmap.height,
+        Matrix().apply { postRotate(degrees) }, true,
+    )
+    if (rotated != bitmap) bitmap.recycle()
+    return rotated
+}
+
 @Composable
 private fun GalleryTile(context: Context, item: GalleryItem, onClick: () -> Unit) {
     var bitmap by remember(item.file.absolutePath) { mutableStateOf<Bitmap?>(null) }
     LaunchedEffect(item.file.absolutePath) {
         if (!item.isRaw && !item.isVideo) {
-            bitmap = withContext(Dispatchers.IO) {
-                BitmapFactory.decodeFile(
-                    item.file.absolutePath,
-                    BitmapFactory.Options().apply { inSampleSize = 4 },
-                )
-            }
+            bitmap = withContext(Dispatchers.IO) { decodeOriented(item.file, 4) }
         }
     }
     Box(
@@ -352,12 +379,7 @@ fun LatestMediaThumbnail(context: Context, item: GalleryItem?, onClick: () -> Un
     LaunchedEffect(item?.file?.absolutePath) {
         val file = item?.file
         if (file != null && !item.isRaw && !item.isVideo) {
-            bitmap = withContext(Dispatchers.IO) {
-                BitmapFactory.decodeFile(
-                    file.absolutePath,
-                    BitmapFactory.Options().apply { inSampleSize = 8 },
-                )
-            }
+            bitmap = withContext(Dispatchers.IO) { decodeOriented(file, 8) }
         }
     }
     Box(

@@ -2,14 +2,12 @@ package com.opopencam.camera
 
 import android.Manifest
 import android.graphics.Matrix
-import android.graphics.RectF
 import android.graphics.SurfaceTexture
 import android.content.pm.PackageManager
+import android.content.Context
 import android.content.res.Configuration
-import android.hardware.SensorManager
 import android.os.Environment
 import android.view.Surface
-import android.view.OrientationEventListener
 import android.view.TextureView
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -33,6 +31,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -41,7 +40,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -55,7 +57,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -142,14 +143,9 @@ private fun cameraLabel(cameraId: Int): String = when (cameraId) {
 fun CameraScreen() {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val configuration = LocalConfiguration.current
-    val landscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val displayRotationDegrees = remember {
-        (context.display?.rotation ?: Surface.ROTATION_0) * 90
-    }
-    var deviceRotation by remember { mutableIntStateOf(displayRotationDegrees) }
-    val deviceRotationState = rememberUpdatedState(deviceRotation)
-    val uiRotation = ((deviceRotation - displayRotationDegrees) % 360 + 360) % 360
+    // Single portrait canvas: the host rotates it with the display, so the
+    // layout is never reflowed into a separate landscape arrangement.
+    val landscape = false
     val haptics = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
 
@@ -181,6 +177,9 @@ fun CameraScreen() {
     var switching by remember { mutableStateOf(false) }
     var showGallery by remember { mutableStateOf(false) }
     var showFormatSheet by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
+    val prefs = remember { context.getSharedPreferences("opopencam", Context.MODE_PRIVATE) }
+    var standbyEnabled by remember { mutableStateOf(prefs.getBoolean("standby_enabled", true)) }
     var standby by remember { mutableStateOf(false) }
     var lastInteraction by remember { mutableStateOf(0L) }
     var resumed by remember {
@@ -218,23 +217,6 @@ fun CameraScreen() {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Physical rotation is independent of the activity lock. The camera UI is
-    // landscape-first, but standby and the preview must still know which way
-    // the phone is being held.
-    DisposableEffect(context) {
-        val listener = object : OrientationEventListener(context, SensorManager.SENSOR_DELAY_NORMAL) {
-            override fun onOrientationChanged(orientation: Int) {
-                if (orientation == ORIENTATION_UNKNOWN) return
-                val rounded = ((orientation + 45) / 90 * 90) % 360
-                if (rounded != deviceRotation) {
-                    deviceRotation = rounded
-                }
-            }
-        }
-        listener.enable()
-        onDispose { listener.disable() }
-    }
-
     // UI-only standby: hide the chrome, keep the SurfaceView and session alive.
     // Like the stock screen, a black idle screen also saves panel burn-in,
     // battery and heat.
@@ -248,8 +230,9 @@ fun CameraScreen() {
         showGallery,
         showFormatSheet,
         resumed,
+        standbyEnabled,
     ) {
-        if (!resumed || capturing || queuedCaptures > 0 || recording || videoBusy || switching || showGallery || showFormatSheet) {
+        if (!standbyEnabled || !resumed || capturing || queuedCaptures > 0 || recording || videoBusy || switching || showGallery || showFormatSheet) {
             standby = false
             return@LaunchedEffect
         }
@@ -303,12 +286,6 @@ fun CameraScreen() {
     }
 
     val textureView = remember { TextureView(context) }
-
-    LaunchedEffect(deviceRotation) {
-        if (textureView.isAvailable) {
-            configurePreviewTransform(textureView, 1440, 1080, deviceRotationState.value)
-        }
-    }
 
 
     fun describeStatus(requestedCamera: Int, requestedMode: Int, ok: Boolean) {
@@ -636,9 +613,15 @@ fun CameraScreen() {
                     val ok = NativeBridge.nativeStartPreview(surface, requestedCamera, requestedMode)
                     activeMode = NativeBridge.nativeGetActiveMode()
                     describeStatus(requestedCamera, requestedMode, ok)
-                    started = true
-                    textureView.post {
-                        configurePreviewTransform(textureView, 1440, 1080, deviceRotationState.value)
+                    started = ok
+                    if (ok) {
+                        textureView.post {
+                            configurePreviewTransform(textureView)
+                        }
+                    } else {
+                        currentSurface = null
+                        previewSurface = null
+                        surface.release()
                     }
                 }
             }
@@ -650,7 +633,7 @@ fun CameraScreen() {
             }
 
             override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, width: Int, height: Int) {
-                configurePreviewTransform(textureView, 1440, 1080, deviceRotationState.value)
+                configurePreviewTransform(textureView)
             }
 
             override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
@@ -674,7 +657,37 @@ fun CameraScreen() {
         textureView.surfaceTextureListener = listener
         if (textureView.isAvailable) startIfReady()
 
+        // The stock camera takes the camera while it is in front. Stop our preview
+        // when we leave and retry the open when we return, instead of keeping a
+        // stale device that fails on the next capture.
+        var retries = 0
+        val retryStart = object : Runnable {
+            override fun run() {
+                if (started || !textureView.isAvailable) return
+                startIfReady()
+                if (!started && retries++ < 10) textureView.postDelayed(this, 400)
+            }
+        }
+        val lifecycleObserver = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> {
+                    retries = 0
+                    textureView.postDelayed(retryStart, 300)
+                }
+                Lifecycle.Event.ON_STOP -> {
+                    started = false
+                    currentSurface = null
+                    NativeBridge.nativeStopPreview()
+                    previewSurface?.release()
+                    previewSurface = null
+                }
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(lifecycleObserver)
+
         onDispose {
+            lifecycleOwner.lifecycle.removeObserver(lifecycleObserver)
             textureView.surfaceTextureListener = null
             if (recording) {
                 recorder?.abort()
@@ -708,12 +721,20 @@ fun CameraScreen() {
     ) {
         Box(
             modifier = (if (landscape) {
-                Modifier.fillMaxSize()
+                // Stock landscape: a 1440x1080 (4:3) preview centred between the
+                // control rail and the settings rail, never full-bleed.
+                Modifier
+                    .aspectRatio(4f / 3f)
+                    .fillMaxHeight()
+                    .align(Alignment.Center)
             } else {
+                // Stock anchor: the photo preview starts at canvas y=300px and
+                // is 1080x1440 (3:4). 300px = 100dp on this 480dpi canvas.
                 Modifier
                     .fillMaxWidth()
                     .aspectRatio(3f / 4f)
-                    .align(Alignment.Center)
+                    .align(Alignment.TopCenter)
+                    .offset(y = 100.dp)
             }).pointerInput(cameraId) {
                     detectTransformGestures { _, _, zoomChange, _ ->
                         if (queuedCaptures == 0 && !videoBusy && !switching && !recording) {
@@ -738,7 +759,7 @@ fun CameraScreen() {
                 modifier = Modifier
                     .fillMaxSize()
                     .onSizeChanged {
-                        configurePreviewTransform(textureView, 1440, 1080, deviceRotationState.value)
+                        configurePreviewTransform(textureView)
                     }
             )
             Canvas(Modifier.matchParentSize()) {
@@ -766,7 +787,11 @@ fun CameraScreen() {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+            Column(Modifier.upright()) {
                 Text(
                     text = "OpOpenCam",
                     color = Color.White,
@@ -778,6 +803,8 @@ fun CameraScreen() {
                     color = Color.White.copy(alpha = 0.55f),
                     fontSize = 10.sp
                 )
+                SettingsGlyph { showSettings = true }
+            }
             }
             if (capturing || queuedCaptures > 0 || switching || videoBusy || recording ||
                 status.contains("failed", ignoreCase = true) ||
@@ -790,7 +817,7 @@ fun CameraScreen() {
                     fontSize = 10.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.width(150.dp)
+                    modifier = Modifier.width(150.dp).upright()
                 )
             } else if (!videoMode) {
                 FormatBadge(modeLabel(captureMode)) {
@@ -1005,6 +1032,41 @@ fun CameraScreen() {
             }
         }
 
+        if (showSettings) {
+            AlertDialog(
+                onDismissRequest = { showSettings = false },
+                containerColor = Color(0xFF1C1C1C),
+                titleContentColor = Color.White,
+                textContentColor = Color.White,
+                title = { Text("Настройки") },
+                text = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Экран ожидания", fontSize = 15.sp)
+                            Text(
+                                "Чёрный экран «Tap for preview» после паузы",
+                                fontSize = 11.sp,
+                                color = Color.White.copy(alpha = 0.6f)
+                            )
+                        }
+                        Switch(
+                            checked = standbyEnabled,
+                            onCheckedChange = {
+                                standbyEnabled = it
+                                prefs.edit().putBoolean("standby_enabled", it).apply()
+                            }
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showSettings = false }) { Text("Готово") }
+                }
+            )
+        }
+
         if (showFormatSheet && !showGallery) {
             FormatSheet(
                 current = captureMode,
@@ -1023,7 +1085,7 @@ fun CameraScreen() {
         }
 
         if (standby && !showGallery && !showFormatSheet && !capturing && queuedCaptures == 0 && !recording && !videoBusy && !switching && resumed) {
-            StandbyOverlay(rotationDegrees = uiRotation) {
+            StandbyOverlay {
                 standby = false
                 lastInteraction++
             }
@@ -1031,46 +1093,34 @@ fun CameraScreen() {
     }
 }
 
-private fun configurePreviewTransform(
-    view: TextureView,
-    previewWidth: Int,
-    previewHeight: Int,
-    deviceRotationDegrees: Int
-) {
-    val viewWidth = view.width
-    val viewHeight = view.height
-    if (viewWidth == 0 || viewHeight == 0) return
-
-    // Keep the preview tied to the locked activity rotation. Physical rotation
-    // is used for the standby/glyph layer; using the raw orientation sensor for
-    // the preview makes a phone lying flat report portrait and flips the image.
-    //
-    // The preview stream arrives 90 degrees rotated relative to the JPEG stream
-    // (validated against a saved still in the same pose), so it only needs the
-    // display counter-rotation. Using the still formula here puts the preview
-    // sideways while the saved JPEG is upright.
-    val displayRotation = view.display?.rotation ?: Surface.ROTATION_0
-    val rotationDegrees = (360 - displayRotation * 90) % 360
-    @Suppress("UNUSED_VARIABLE")
-    val physicalRotation = deviceRotationDegrees
-    val landscape = viewWidth > viewHeight
-
-    val matrix = Matrix()
-    matrix.postTranslate(-previewWidth / 2f, -previewHeight / 2f)
-    matrix.postRotate(rotationDegrees.toFloat())
-    val rotatedWidth = if (rotationDegrees % 180 == 0) previewWidth else previewHeight
-    val rotatedHeight = if (rotationDegrees % 180 == 0) previewHeight else previewWidth
-    val scale = if (landscape) {
-        // Fill the landscape screen like a camera viewfinder; the still keeps
-        // the full 4:3 sensor framing.
-        maxOf(viewWidth.toFloat() / rotatedWidth, viewHeight.toFloat() / rotatedHeight)
-    } else {
-        // Portrait: show the complete 3:4 framing without cropping.
-        minOf(viewWidth.toFloat() / rotatedWidth, viewHeight.toFloat() / rotatedHeight)
+@Composable
+private fun SettingsGlyph(onClick: () -> Unit) {
+    Canvas(
+        Modifier
+            .size(28.dp)
+            .clickable(onClick = onClick)
+            .padding(6.dp)
+    ) {
+        val ink = Color.White.copy(alpha = 0.8f)
+        val stroke = 1.6.dp.toPx()
+        for (i in 0..2) {
+            val y = size.height * (0.2f + 0.3f * i)
+            drawLine(color = ink, start = Offset(0f, y), end = Offset(size.width, y), strokeWidth = stroke)
+        }
     }
-    matrix.postScale(scale, scale)
-    matrix.postTranslate(viewWidth / 2f, viewHeight / 2f)
-    view.setTransform(matrix)
+}
+
+private fun configurePreviewTransform(view: TextureView) {
+    val viewWidth = view.width.toFloat()
+    val viewHeight = view.height.toFloat()
+    if (viewWidth == 0f || viewHeight == 0f) return
+
+    // Measured against the stock preview in both poses: the preview stream already
+    // arrives in screen orientation, and TextureView keeps the buffer aspect
+    // ratio. Any rotation or rect-to-rect mapping here only introduces error
+    // (portrait kept aspect at ratio 1.000; landscape rotated the frame 90 deg).
+    // So the transform is identity and the preview is shaped by its layout box.
+    view.setTransform(Matrix())
 }
 
 /**
@@ -1080,7 +1130,7 @@ private fun configurePreviewTransform(
  * touch or restart the camera session.
  */
 @Composable
-private fun StandbyOverlay(rotationDegrees: Int, onWake: () -> Unit) {
+private fun StandbyOverlay(onWake: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1088,10 +1138,7 @@ private fun StandbyOverlay(rotationDegrees: Int, onWake: () -> Unit) {
             .clickable(onClick = onWake),
         contentAlignment = Alignment.Center,
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.rotate(rotationDegrees.toFloat())
-        ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Canvas(Modifier.size(64.dp)) {
                 val ink = Color.White.copy(alpha = 0.85f)
                 val stroke = Stroke(width = 2.dp.toPx())
@@ -1142,7 +1189,8 @@ private fun FormatBadge(label: String, onClick: () -> Unit) {
             .clip(RoundedCornerShape(50))
             .background(Color.White.copy(alpha = 0.10f))
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .upright(),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -1285,7 +1333,8 @@ private fun SegmentButton(label: String, selected: Boolean, onClick: () -> Unit)
             text = label,
             color = if (selected) Color.Black else Color.White.copy(alpha = 0.68f),
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            fontSize = 11.sp
+            fontSize = 11.sp,
+            modifier = Modifier.upright()
         )
     }
 }
@@ -1373,7 +1422,8 @@ private fun SettingChip(
             text = label,
             color = if (selected) Color.Black else Color.White.copy(alpha = 0.85f),
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            fontSize = if (compact) 11.sp else 12.sp
+            fontSize = if (compact) 11.sp else 12.sp,
+            modifier = Modifier.upright()
         )
     }
 }

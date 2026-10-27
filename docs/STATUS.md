@@ -10,6 +10,27 @@
 zoom and lens hand-off. Video remains an experimental 4K feature until the photo
 core is accepted; 5K/6K/8K and HDR/Dolby are later workstreams.
 
+## 2026-10-27 UI-302 single canvas and gallery orientation
+
+- **Single portrait canvas:** `MainActivity` hosts one `360x792dp` canvas whose
+  `rotationZ` follows `Display.rotation`; the camera screen always renders the
+  portrait layout, so controls keep their place relative to the phone in every
+  pose. `requiredSize` is mandatory: `size()` let the landscape window clamp the
+  canvas and compressed every control.
+- **Glyph counter-rotation:** `LocalGlyphRotation` + `Modifier.upright()` turn
+  readable text and icons back in place without moving them. Applied to the
+  header, status, zoom stops, PHOTO/VIDEO labels and the format badge.
+- **Preview measured, not guessed:** feature matching against the stock preview
+  gave `scaleX/scaleY = 1.0000`, residual `1.4px` in portrait after removing all
+  canvas transforms. The preview stream already arrives in screen orientation and
+  `TextureView` keeps the aspect ratio; any matrix or session restart only adds
+  error. Portrait preview now starts at the stock anchor `y=300px`.
+- **Gallery EXIF:** `BitmapFactory.decodeFile()` ignores EXIF; a still with
+  `Orientation=6` was shown sideways. All three decode sites now use
+  `decodeOriented()`.
+- **Not yet verified on device:** the 2026-10-27 canvas build. The phone was
+  disconnected after the anchor change.
+
 ## 2026-10-26 UI/capture update
 
 - **UI-301 merged (`79d2144`):** physical rotation detection; the standby screen
