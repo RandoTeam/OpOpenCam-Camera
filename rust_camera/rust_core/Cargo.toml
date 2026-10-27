@@ -1,6 +1,6 @@
 [package]
 name = "opopencam"
-version = "0.5.4-beta.1"
+version = "0.5.5-beta.1"
 edition = "2021"
 description = "Rust Camera2 NDK engine for the OpOpenCam hybrid camera"
 license = "MIT"

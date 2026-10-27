@@ -83,10 +83,7 @@ jobs:
           ./gradlew :app:assembleRelease
 
       - name: Verify APK signature
-        run: |
-          APKSIGNER="$(ls -d "$ANDROID_HOME"/build-tools/* | tail -1)/apksigner"
-          "$APKSIGNER" verify --print-certs \
-            rust_camera/android_app/app/build/outputs/apk/release/app-release.apk
+        run: python3 rust_camera/scripts/check_signing.py
 
       - name: Checksums
         run: |
