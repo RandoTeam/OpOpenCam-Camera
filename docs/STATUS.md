@@ -10,6 +10,16 @@
 zoom and lens hand-off. Video remains an experimental 4K feature until the photo
 core is accepted; 5K/6K/8K and HDR/Dolby are later workstreams.
 
+## 2026-10-27 UI-303 anchored chrome (0.5.1-beta.1, unverified)
+
+- The bottom chrome now uses the stock anchor table from
+  `stock-ui-inventory.md`: bare zoom labels at `y=1640..1663`
+  (`x=324/432/540/648/756`), mode rail `1740..1920` with 112 px gaps and a
+  PHOTO/VIDEO pill, capture deck centres `180/540/900` at `y=2061`.
+- Video preview `1080x1920` at `y=300`; photo `1080x1440`.
+- **Not verified on device.** The legacy flow layout is compiled out and must be
+  deleted after the device pass. Header rail and quick toggles remain open.
+
 ## 2026-10-27 UI-302 single canvas and gallery orientation
 
 - **Single portrait canvas:** `MainActivity` hosts one `360x792dp` canvas whose
