@@ -61,12 +61,8 @@ jobs:
           cp rust_camera/rust_core/target/aarch64-linux-android/release/libopopencam.so \
              rust_camera/android_app/app/src/main/jniLibs/arm64-v8a/libopopencam.so
 
-      - name: Assemble release APK
-        working-directory: rust_camera/android_app
-        run: |
-          chmod +x gradlew
-          ./gradlew :app:assembleRelease
-
+      # The keystore must be decoded *before* Gradle runs, otherwise the release
+      # build falls back to the runner debug key and cannot update a CI beta.
       - name: Decode release keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.OPOPENCAM_KEYSTORE_BASE64 }}
@@ -79,6 +75,12 @@ jobs:
           echo "OPOPENCAM_KEYSTORE_PASSWORD=${{ secrets.OPOPENCAM_KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
           echo "OPOPENCAM_KEY_ALIAS=${{ secrets.OPOPENCAM_KEY_ALIAS }}" >> "$GITHUB_ENV"
           echo "OPOPENCAM_KEY_PASSWORD=${{ secrets.OPOPENCAM_KEY_PASSWORD }}" >> "$GITHUB_ENV"
+
+      - name: Assemble release APK
+        working-directory: rust_camera/android_app
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease
 
       - name: Verify APK signature
         run: |

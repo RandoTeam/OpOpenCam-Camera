@@ -11,6 +11,12 @@ All notable changes to the OpOpenCam Rust camera are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3-beta.1] — 2026-10-27
+
+### Fixed
+
+- Release workflow decoded the keystore after Gradle had already built the APK, so CI kept signing with the runner debug key. The keystore is now decoded before `assembleRelease`; the published APK carries `CN=OpOpenCam Beta`. A CI beta and a local build can update each other in place.
+
 ## [0.5.2-beta.1] — 2026-10-27
 
 ### Added
@@ -93,7 +99,8 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and left/right control rails. This is not the stock single-canvas layout; UI-302
   replaces it.
 - Orientation-aware JPEG/DNG capture: sensor/display rotation is applied via
-  `nativeSetJpegOrientation`; landscape stills use orientation 3 (180 degrees)
+  
+ativeSetJpegOrientation`; landscape stills use orientation 3 (180 degrees)
   and RAW 50 DNGs carry orientation 3.
 - Device-validated physical lens presets: 3x tele (camera 4), 6x tele crop, 0.6x
   ultra-wide (camera 3), 1x logical; separate JPEG/RAW captures are upright.
@@ -247,7 +254,8 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `SurfaceView` surface, keeping the stream configuration valid.
 - **HAL fallback:** if 50 MP/RAW/HDR session configuration fails, the engine
   automatically retries 12 MP JPEG and reports the active mode to the UI.
-- **Motion Photo assembly JNI:** `nativeAssembleMotionPhoto` wraps the existing
+- **Motion Photo assembly JNI:** 
+ativeAssembleMotionPhoto` wraps the existing
   JPEG + XMP + MP4 muxer for the Live Photo milestone.
 - `docs/CAPTURE_MODES.md` with mode/fallback/HDR details.
 
