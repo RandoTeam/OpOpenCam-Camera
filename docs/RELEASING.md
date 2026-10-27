@@ -47,7 +47,27 @@ identity and push `main` instead. Never publish a personal email in a merge comm
 
 ## Signing
 
-Alpha/beta APKs are **debug-signed** and clearly marked as such. The CI-generated
+## Project signing key (since 0.5.2-beta.1)
+
+One project keystore signs both CI and local builds, so a beta published by CI
+can be updated in place by a local build and vice versa. Without this, the two
+used different debug certificates and `adb install -r` failed with
+`INSTALL_FAILED_UPDATE_INCOMPATIBLE`.
+
+- Keystore: RSA 4096, alias `opopencam`, validity 10000 days.
+- Local: `rust_camera/android_app/keystore.properties` (gitignored) with
+  `storeFile`, `storePassword`, `keyAlias`, `keyPassword`. Keep the `.jks` outside
+  the repository.
+- CI: repository secrets `OPOPENCAM_KEYSTORE_BASE64`,
+  `OPOPENCAM_KEYSTORE_PASSWORD`, `OPOPENCAM_KEY_ALIAS`,
+  `OPOPENCAM_KEY_PASSWORD`. The release workflow decodes the keystore and prints
+  the certificate so the fingerprint can be compared with a local build.
+- Expected certificate: `CN=OpOpenCam Beta, O=RandoTeam, C=RU`,
+  SHA-256 `51:57:0d:2b:33:a2:c6:6e:c6:85:92:ae:6a:7c:2a:b5:28:ba:6a:6d:30:7e:0f:00:88:83:59:90:cb:88:0c:f2`.
+
+Never commit the keystore, `keystore.properties` or the passwords.
+
+Older alpha/beta APKs were **debug-signed** and clearly marked as such. The CI-generated
 debug key is not the same as a developer machine's debug key, so installing a
 release APK over a local debug build requires uninstalling the old package first.
 A production

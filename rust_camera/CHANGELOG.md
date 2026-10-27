@@ -11,6 +11,28 @@ All notable changes to the OpOpenCam Rust camera are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2-beta.1] — 2026-10-27
+
+### Added
+
+- Project release keystore shared by CI and local builds (RSA 4096, alias
+  `opopencam`). CI reads it from GitHub Secrets and verifies the APK signature;
+  locally it comes from the gitignored `keystore.properties`. A CI beta can now
+  be updated in place by a local build.
+
+### Fixed
+
+- Mode rail centres the **selected** item on canvas x=540 with 112 px between
+  text bounds; the pill is drawn as a 216x81 background layer instead of padding,
+  so it no longer shifts the neighbours.
+- Zoom row sits on the stock centre line y=1651 (was 43 px low).
+
+### Verified on device
+
+- Portrait: preview `[0,300][1080,1740]`; zoom label centres
+  `x=324/432/540/648/756` at `y=1651`; PHOTO label `[453,591]` (stock `[463,580]`);
+  VIDEO/PORTRAIT clipped at the canvas edges like stock.
+
 ## [0.5.1-beta.1] — 2026-10-27
 
 ### Added

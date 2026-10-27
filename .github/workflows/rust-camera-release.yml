@@ -67,6 +67,25 @@ jobs:
           chmod +x gradlew
           ./gradlew :app:assembleRelease
 
+      - name: Decode release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.OPOPENCAM_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "OPOPENCAM_KEYSTORE_BASE64 is not configured"; exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/opopencam-beta.jks"
+          echo "OPOPENCAM_KEYSTORE=$RUNNER_TEMP/opopencam-beta.jks" >> "$GITHUB_ENV"
+          echo "OPOPENCAM_KEYSTORE_PASSWORD=${{ secrets.OPOPENCAM_KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "OPOPENCAM_KEY_ALIAS=${{ secrets.OPOPENCAM_KEY_ALIAS }}" >> "$GITHUB_ENV"
+          echo "OPOPENCAM_KEY_PASSWORD=${{ secrets.OPOPENCAM_KEY_PASSWORD }}" >> "$GITHUB_ENV"
+
+      - name: Verify APK signature
+        run: |
+          APKSIGNER="$(ls -d "$ANDROID_HOME"/build-tools/* | tail -1)/apksigner"
+          "$APKSIGNER" verify --print-certs \
+            rust_camera/android_app/app/build/outputs/apk/release/app-release.apk
+
       - name: Checksums
         run: |
           cd rust_camera/android_app/app/build/outputs/apk/release
