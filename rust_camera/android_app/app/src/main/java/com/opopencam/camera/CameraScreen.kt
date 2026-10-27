@@ -67,6 +67,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -112,7 +113,12 @@ private data class CaptureJob(
     val mode: Int,
     val cameraId: Int,
     val jpegOrientation: Int,
+    /** Live Photo: keep a short clip and mux it into the still (Motion Photo v1). */
+    val live: Boolean = false,
 )
+
+/** Post-capture clip length for Live Photo v1 (pre-roll ring comes later). */
+private const val LIVE_PHOTO_CLIP_MS = 2_500L
 
 private const val MODE_JPEG12 = 0
 private const val MODE_JPEG50 = 1
@@ -186,6 +192,9 @@ fun CameraScreen() {
     var showSettings by remember { mutableStateOf(false) }
     val prefs = remember { context.getSharedPreferences("opopencam", Context.MODE_PRIVATE) }
     var standbyEnabled by remember { mutableStateOf(prefs.getBoolean("standby_enabled", true)) }
+    var livePhotoEnabled by remember {
+        mutableStateOf(prefs.getBoolean("live_photo_enabled", false))
+    }
     var standby by remember { mutableStateOf(false) }
     var lastInteraction by remember { mutableStateOf(0L) }
     var resumed by remember {
@@ -473,6 +482,58 @@ fun CameraScreen() {
         }
     }
 
+    /**
+     * Records a [LIVE_PHOTO_CLIP_MS] clip and muxes it into the still as a Google
+     * Motion Photo v1 (JPEG + appended MP4 + XMP). Blocking: runs on the capture
+     * worker, never on the main thread.
+     *
+     * Returns (short note, file to publish) or null to fall back to the plain
+     * still. The camera session is returned to still preview in every path.
+     */
+    fun finishLivePhoto(jpegFile: File, job: CaptureJob): Pair<String, File>? {
+        val surface = currentSurface ?: return null
+        val mp4 = File(jpegFile.parentFile, "MOTION_${System.currentTimeMillis()}.mp4")
+        val out = File(jpegFile.parentFile, jpegFile.nameWithoutExtension + "MP.jpg")
+        val recorder = VideoRecorder(context)
+        return try {
+            recorder.start(
+                surface,
+                job.cameraId,
+                mp4,
+                VideoRecorder.Config(
+                    width = 1920,
+                    height = 1440,
+                    fps = 30,
+                    videoBitrate = 20_000_000,
+                ),
+            )
+            Thread.sleep(LIVE_PHOTO_CLIP_MS)
+            recorder.stop()
+            val assembled = NativeBridge.nativeAssembleMotionPhoto(
+                jpegFile.absolutePath,
+                mp4.absolutePath,
+                out.absolutePath,
+                0L,
+            )
+            if (assembled && out.isFile && out.length() > jpegFile.length()) {
+                "live ${out.length() / 1024} KB" to out
+            } else {
+                null
+            }
+        } catch (t: Throwable) {
+            android.util.Log.w("OpOpenCamLive", "live photo failed", t)
+            null
+        } finally {
+            android.util.Log.i(
+                "OpOpenCamLive",
+                "clip=${if (mp4.isFile) mp4.length() else -1} out=${if (out.isFile) out.length() else -1} jpeg=${jpegFile.length()}",
+            )
+            mp4.delete()
+            // Video recording restarts the session; put the still preview back.
+            runCatching { NativeBridge.nativeStartPreview(surface, job.cameraId, job.mode) }
+        }
+    }
+
     fun processCapture(job: CaptureJob): String {
         val dir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
             ?: context.filesDir
@@ -490,12 +551,20 @@ fun CameraScreen() {
         val ok = NativeBridge.nativeCapturePhoto(file.absolutePath)
         return when {
             ok -> {
-                val uri = MediaStoreSaver.publishImage(context, file)
-                if (uri != null) {
-                    "Saved ${file.name} \u00b7 Gallery"
+                // Live Photo: record a short clip, mux it into the JPEG and publish
+                // only the Motion Photo. If anything fails the plain still is kept.
+                val liveMessage = if (job.live && extension == "jpg") {
+                    finishLivePhoto(file, job)
                 } else {
-                    "Saved ${file.name} \u00b7 not indexed"
+                    null
                 }
+                val publishFile = liveMessage?.second ?: file
+                val uri = MediaStoreSaver.publishImage(context, publishFile)
+                val base = when {
+                    uri != null -> "Saved ${publishFile.name} \u00b7 Gallery"
+                    else -> "Saved ${publishFile.name} \u00b7 not indexed"
+                }
+                liveMessage?.first?.let { base + " \u00b7 $it" } ?: base
             }
             effectiveMode == MODE_JPEG50 -> "50 MP JPEG unavailable \u2014 use RAW 50"
             else -> "Capture failed - see logcat"
@@ -530,7 +599,7 @@ fun CameraScreen() {
         val displayRotation = (context.display?.rotation ?: Surface.ROTATION_0) * 90
         val sensorOrientation = if (cameraId == 1) 270 else 90
         val jpegOrientation = ((sensorOrientation - displayRotation) % 360 + 360) % 360
-        val job = CaptureJob(captureMode, cameraId, jpegOrientation)
+        val job = CaptureJob(captureMode, cameraId, jpegOrientation, live = livePhotoEnabled)
         if (captureQueue.trySend(job).isSuccess) {
             queuedCaptures++
             // Never replace a "Processing HDR..." line with the queue text; the
@@ -807,7 +876,12 @@ fun CameraScreen() {
                     fontSize = 15.sp
                 )
                 Text(
-                    text = if (videoMode) "VIDEO" else "${modeLabel(captureMode)} \u00b7 ${cameraLabel(cameraId)} \u00b7 ${"%.1f".format(zoom)}\u00d7",
+                    text = if (videoMode) {
+                        "VIDEO"
+                    } else {
+                        "${modeLabel(captureMode)} \u00b7 ${cameraLabel(cameraId)} \u00b7 " +
+                            "${"%.1f".format(zoom)}\u00d7" + if (livePhotoEnabled) " \u00b7 LIVE" else ""
+                    },
                     color = Color.White.copy(alpha = 0.55f),
                     fontSize = 10.sp
                 )
@@ -958,6 +1032,31 @@ fun CameraScreen() {
             }
         }
 
+        }
+
+        // Stock live-photo cell: canvas x=375..531, glyph centre (453,162).
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = canvasPx(375f))
+                .size(canvasPx(156f), canvasPx(240f))
+                .clickable {
+                    if (queuedCaptures == 0 && !recording && !videoBusy) {
+                        livePhotoEnabled = !livePhotoEnabled
+                        prefs.edit().putBoolean("live_photo_enabled", livePhotoEnabled).apply()
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        status = if (livePhotoEnabled) "Live Photo on" else "Live Photo off"
+                        lastInteraction++
+                    } else if (queuedCaptures > 0) {
+                        status = busyMessage()
+                    }
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            LivePhotoGlyph(
+                enabled = livePhotoEnabled,
+                modifier = Modifier.size(canvasPx(60f)),
+            )
         }
 
         // ---- Stock-anchored chrome (canvas 1080x2376 px, 1dp = 3px) ----
@@ -1311,6 +1410,37 @@ private fun ModeRailItem(label: String, selected: Boolean, enabled: Boolean, onC
                 }
                 drawPath(path, Accent)
             }
+        }
+    }
+}
+
+/**
+ * Stock Live Photo glyph: a dotted ring, with a filled centre when enabled and a
+ * diagonal slash when off (measured 60x60 px at canvas centre 453,162).
+ */
+@Composable
+private fun LivePhotoGlyph(enabled: Boolean, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val ink = if (enabled) Accent else Color.White
+        val stroke = 2.dp.toPx()
+        val radius = size.minDimension / 2f - stroke
+        drawCircle(
+            color = ink,
+            radius = radius,
+            style = Stroke(
+                width = stroke,
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 5f)),
+            ),
+        )
+        if (enabled) {
+            drawCircle(color = ink, radius = radius * 0.32f)
+        } else {
+            drawLine(
+                color = ink,
+                start = Offset(size.width * 0.18f, size.height * 0.82f),
+                end = Offset(size.width * 0.82f, size.height * 0.18f),
+                strokeWidth = stroke,
+            )
         }
     }
 }
