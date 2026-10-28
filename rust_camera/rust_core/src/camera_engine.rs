@@ -921,15 +921,12 @@ impl CameraEngine {
             }
         }
         let orientation = self.dng_orientation;
-        // The CFA order of the delivered buffer differs per stream: the binned
-        // 12 MP RAW is RGGB, while the 50 MP remosaic puts R/B the other way.
-        // Measured on the device by the two green phases and skin tone: under an
-        // RGGB tag the 50 MP frame renders cyan skin, under BGGR it is correct.
-        let cfa_pattern: [u8; 4] = if matches!(mode, CaptureMode::Raw50) {
-            [2, 1, 1, 0] // BGGR
-        } else {
-            [0, 1, 1, 2] // RGGB
-        };
+        // Measured on the device in one scene: RAW 12 and RAW 50 both have
+        // phase0 > phase3 with symmetric greens, and RAW 12 is RGGB. So the
+        // 50 MP remosaic is RGGB as well; an earlier BGGR hypothesis was
+        // refuted. The pattern stays a parameter so a future per-mode value can
+        // be passed without touching the writer.
+        let cfa_pattern: [u8; 4] = [0, 1, 1, 2]; // RGGB
         write_dng_16bit(
             path,
             width as u32,
