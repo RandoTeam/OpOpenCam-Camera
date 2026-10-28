@@ -885,7 +885,10 @@ impl CameraEngine {
         Ok(())
     }
 
-    fn capture_raw(&mut self, path: &str, mode: CaptureMode) -> Result<(), String> {
+    // `_mode` is kept so a per-mode CFA/level override can be added without
+    // touching the dispatch again; the in-scene measurement showed RGGB for both
+    // RAW 12 and RAW 50, so no override is needed today.
+    fn capture_raw(&mut self, path: &str, _mode: CaptureMode) -> Result<(), String> {
         self.clear_still_frames();
         let request = unsafe { self.create_still_request()? };
         unsafe {
