@@ -19,6 +19,10 @@ pub fn write_dng_16bit<P: AsRef<Path>>(
     black_level: u32,
     white_level: u32,
     orientation: u16,
+    // 2x2 CFA pattern as top-left, top-right, bottom-left, bottom-right.
+    // 0 = R, 1 = G, 2 = B. Must match the delivered buffer, not the sensor
+    // datasheet: the binned 12 MP stream is RGGB, the 50 MP remosaic is BGGR.
+    cfa_pattern: [u8; 4],
 ) -> std::io::Result<()> {
     let file = File::create(path)?;
     let mut writer = BufWriter::new(file);
@@ -183,12 +187,12 @@ pub fn write_dng_16bit<P: AsRef<Path>>(
         value_or_offset: (2u32 << 16) | 2u32,
         extra_data: vec![],
     });
-    // Tag: CFAPattern (0x828E) = RGGB [0, 1, 1, 2]
+    // Tag: CFAPattern (0x828E), little-endian packed [b0, b1, b2, b3].
     entries.push(IfdEntry {
         tag: 0x828E,
         field_type: 1,
         count: 4,
-        value_or_offset: 0x02010100,
+        value_or_offset: u32::from_le_bytes(cfa_pattern),
         extra_data: vec![],
     });
     // Tag: DNGVersion (0xC612) = [1, 4, 0, 0]

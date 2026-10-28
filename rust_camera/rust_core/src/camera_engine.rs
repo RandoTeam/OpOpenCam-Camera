@@ -840,7 +840,9 @@ impl CameraEngine {
         let started = Instant::now();
         let result = match self.capture_mode {
             CaptureMode::Jpeg12 | CaptureMode::Jpeg50 => self.capture_jpeg(path),
-            CaptureMode::Raw12 | CaptureMode::Raw25 | CaptureMode::Raw50 => self.capture_raw(path),
+            CaptureMode::Raw12 | CaptureMode::Raw25 | CaptureMode::Raw50 => {
+                self.capture_raw(path, self.capture_mode)
+            }
             CaptureMode::Hdr3 => self.capture_hdr(path),
         };
         info!(
@@ -883,7 +885,7 @@ impl CameraEngine {
         Ok(())
     }
 
-    fn capture_raw(&mut self, path: &str) -> Result<(), String> {
+    fn capture_raw(&mut self, path: &str, mode: CaptureMode) -> Result<(), String> {
         self.clear_still_frames();
         let request = unsafe { self.create_still_request()? };
         unsafe {
@@ -919,6 +921,12 @@ impl CameraEngine {
             }
         }
         let orientation = self.dng_orientation;
+        // Measured on the device in one scene: RAW 12 and RAW 50 both have
+        // phase0 > phase3 with symmetric greens, and RAW 12 is RGGB. So the
+        // 50 MP remosaic is RGGB as well; an earlier BGGR hypothesis was
+        // refuted. The pattern stays a parameter so a future per-mode value can
+        // be passed without touching the writer.
+        let cfa_pattern: [u8; 4] = [0, 1, 1, 2]; // RGGB
         write_dng_16bit(
             path,
             width as u32,
@@ -928,6 +936,7 @@ impl CameraEngine {
             RAW_BLACK_LEVEL,
             RAW_WHITE_LEVEL_10BIT,
             orientation,
+            cfa_pattern,
         )
         .map_err(|e| format!("write DNG {}: {}", path, e))?;
         info!("Camera2 NDK: saved DNG {}x{} to {}", width, height, path);
