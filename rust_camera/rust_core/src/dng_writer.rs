@@ -1,6 +1,11 @@
-//! Adobe DNG (Digital Negative) 1.4 Linear RAW File Generator
-//! Produces 100% compliant Adobe DNG 1.4 files for Sony LYT-808 / LYT-600 / JN5 sensors.
-//! Compatible with Adobe Lightroom, Photoshop Camera Raw, RawTherapee, and Snapseed.
+//! Adobe DNG 1.4 CFA writer.
+//!
+//! Colour tags are taken from the sensor and the capture result instead of a
+//! generic sRGB guess: `ColorMatrix1/2`, `ForwardMatrix1/2`,
+//! `CameraCalibration1/2`, `CalibrationIlluminant1/2`, `AsShotNeutral`, a
+//! per-CFA `BlackLevel` and `ActiveArea`/`DefaultCrop`. Writing invented values
+//! is what made converters fall back to their own white balance and render
+//! green/cyan casts.
 
 #![allow(clippy::vec_init_then_push, clippy::manual_is_multiple_of)]
 
@@ -8,7 +13,9 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
-/// Writes a 16-bit Bayer RAW image to an authentic Adobe DNG 1.4 file
+use crate::dng_color::DngColor;
+
+/// Writes a 16-bit Bayer RAW image to an Adobe DNG 1.4 file.
 #[allow(clippy::too_many_arguments)]
 pub fn write_dng_16bit<P: AsRef<Path>>(
     path: P,
@@ -16,13 +23,8 @@ pub fn write_dng_16bit<P: AsRef<Path>>(
     height: u32,
     raw_pixels_16bit: &[u16],
     model_name: &str,
-    black_level: u32,
-    white_level: u32,
     orientation: u16,
-    // 2x2 CFA pattern as top-left, top-right, bottom-left, bottom-right.
-    // 0 = R, 1 = G, 2 = B. Must match the delivered buffer, not the sensor
-    // datasheet: the binned 12 MP stream is RGGB, the 50 MP remosaic is BGGR.
-    cfa_pattern: [u8; 4],
+    color: &DngColor,
 ) -> std::io::Result<()> {
     let file = File::create(path)?;
     let mut writer = BufWriter::new(file);
@@ -38,31 +40,63 @@ pub fn write_dng_16bit<P: AsRef<Path>>(
     let camera_unique = format!("OnePlus 13 ({})\0", model_name);
     let software_str = b"MasterCam Pure Rust Engine v1.0\0";
 
-    // Generic sRGB D65 fallback. DNG ColorMatrix1 maps XYZ -> camera native;
-    // this is the inverse of the public sRGB->XYZ matrix, not a per-sensor
-    // calibration. Accurate color still requires a user-supplied ColorMatrix.
-    let color_matrix_rationals: [(i32, i32); 9] = [
-        (32_404_542, 10_000_000),
-        (-15_371_385, 10_000_000),
-        (-4_985_314, 10_000_000),
-        (-9_692_660, 10_000_000),
-        (18_760_108, 10_000_000),
-        (415_560, 10_000_000),
-        (556_434, 10_000_000),
-        (-2_040_259, 10_000_000),
-        (10_572_252, 10_000_000),
-    ];
-
     // Data sizes
     let pixel_byte_count = width * height * 2;
 
     // IFD Tag Entry Struct
     struct IfdEntry {
         tag: u16,
-        field_type: u16, // 1=BYTE, 2=ASCII, 3=SHORT, 4=LONG, 5=RATIONAL
+        field_type: u16, // 1=BYTE, 2=ASCII, 3=SHORT, 4=LONG, 5=RATIONAL, 10=SRATIONAL, 12=DOUBLE
         count: u32,
         value_or_offset: u32,
         extra_data: Vec<u8>,
+    }
+
+    /// Encodes an `f64` as a rational with a fixed denominator. 1e6 keeps ~6
+    /// decimal digits, which is far more than the HAL's own precision.
+    fn rational_pair(value: f64) -> (i32, i32) {
+        const DEN: i64 = 1_000_000;
+        let scaled = (value * DEN as f64).round() as i64;
+        let clamped = scaled.clamp(i32::MIN as i64, i32::MAX as i64) as i32;
+        (clamped, DEN as i32)
+    }
+
+    fn signed_rationals(tag: u16, values: &[f64]) -> IfdEntry {
+        let mut bytes = Vec::with_capacity(values.len() * 8);
+        for value in values {
+            let (num, den) = rational_pair(*value);
+            bytes.extend_from_slice(&num.to_le_bytes());
+            bytes.extend_from_slice(&den.to_le_bytes());
+        }
+        IfdEntry {
+            tag,
+            field_type: 10, // SRATIONAL
+            count: values.len() as u32,
+            value_or_offset: 0,
+            extra_data: bytes,
+        }
+    }
+
+    fn unsigned_rationals(tag: u16, values: &[f64]) -> IfdEntry {
+        let mut bytes = Vec::with_capacity(values.len() * 8);
+        for value in values {
+            let (num, den) = rational_pair(*value);
+            bytes.extend_from_slice(&num.max(0).to_le_bytes());
+            bytes.extend_from_slice(&den.to_le_bytes());
+        }
+        IfdEntry {
+            tag,
+            field_type: 5, // RATIONAL
+            count: values.len() as u32,
+            value_or_offset: 0,
+            extra_data: bytes,
+        }
+    }
+
+    fn matrix_values(m: &[[f64; 3]; 3]) -> [f64; 9] {
+        [
+            m[0][0], m[0][1], m[0][2], m[1][0], m[1][1], m[1][2], m[2][0], m[2][1], m[2][2],
+        ]
     }
 
     let mut entries: Vec<IfdEntry> = Vec::new();
@@ -179,6 +213,41 @@ pub fn write_dng_16bit<P: AsRef<Path>>(
         value_or_offset: 0,
         extra_data: software_str.to_vec(),
     });
+    // Tag: PlanarConfiguration (0x011C) = 1 (chunky)
+    entries.push(IfdEntry {
+        tag: 0x011C,
+        field_type: 3,
+        count: 1,
+        value_or_offset: 1,
+        extra_data: vec![],
+    });
+    // Tags: XResolution/YResolution (0x011A/0x011B) = 72/1, ResolutionUnit
+    // (0x0128) = 2 (inch). AOSP's DngCreator writes the same.
+    entries.push(unsigned_rationals(0x011A, &[72.0]));
+    entries.push(unsigned_rationals(0x011B, &[72.0]));
+    entries.push(IfdEntry {
+        tag: 0x0128,
+        field_type: 3,
+        count: 1,
+        value_or_offset: 2,
+        extra_data: vec![],
+    });
+    // Tag: CFAPlaneColor (0xC616) = [R, G, B]
+    entries.push(IfdEntry {
+        tag: 0xC616,
+        field_type: 1,
+        count: 3,
+        value_or_offset: 0x0002_0100,
+        extra_data: vec![],
+    });
+    // Tag: CFALayout (0xC617) = 1 (rectangular)
+    entries.push(IfdEntry {
+        tag: 0xC617,
+        field_type: 3,
+        count: 1,
+        value_or_offset: 1,
+        extra_data: vec![],
+    });
     // Tag: CFARepeatPatternDim (0x828D) = [2, 2]
     entries.push(IfdEntry {
         tag: 0x828D,
@@ -192,7 +261,7 @@ pub fn write_dng_16bit<P: AsRef<Path>>(
         tag: 0x828E,
         field_type: 1,
         count: 4,
-        value_or_offset: u32::from_le_bytes(cfa_pattern),
+        value_or_offset: u32::from_le_bytes(color.cfa_pattern),
         extra_data: vec![],
     });
     // Tag: DNGVersion (0xC612) = [1, 4, 0, 0]
@@ -219,43 +288,118 @@ pub fn write_dng_16bit<P: AsRef<Path>>(
         value_or_offset: 0,
         extra_data: camera_unique.as_bytes().to_vec(),
     });
-    // Tag: BlackLevel (0xC61A)
+    // Tag: BlackLevelRepeatDim (0xC619) = [2, 2]
     entries.push(IfdEntry {
-        tag: 0xC61A,
-        field_type: 4,
-        count: 1,
-        value_or_offset: black_level,
+        tag: 0xC619,
+        field_type: 3,
+        count: 2,
+        value_or_offset: (2u32 << 16) | 2u32,
         extra_data: vec![],
     });
+    // Tag: BlackLevel (0xC61A), one rational per CFA phase.
+    entries.push(unsigned_rationals(0xC61A, &color.black_level));
     // Tag: WhiteLevel (0xC61D)
     entries.push(IfdEntry {
         tag: 0xC61D,
         field_type: 4,
         count: 1,
-        value_or_offset: white_level,
+        value_or_offset: color.white_level,
         extra_data: vec![],
     });
-    // Tag: CalibrationIlluminant1 (0xC65A) = 21 (D65)
+    // Tag: DefaultScale (0xC61E) = [1/1, 1/1]
+    entries.push(unsigned_rationals(0xC61E, &[1.0, 1.0]));
+    // Tag: DefaultCropOrigin (0xC61F) and DefaultCropSize (0xC620)
+    entries.push(IfdEntry {
+        tag: 0xC61F,
+        field_type: 4,
+        count: 2,
+        value_or_offset: 0,
+        extra_data: color
+            .crop_origin
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect(),
+    });
+    entries.push(IfdEntry {
+        tag: 0xC620,
+        field_type: 4,
+        count: 2,
+        value_or_offset: 0,
+        extra_data: color
+            .crop_size
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect(),
+    });
+    // Tag: ColorMatrix1/2 (0xC621/0xC622): XYZ -> camera native, as reported by
+    // the sensor. This is exactly what AOSP's DngCreator writes.
+    entries.push(signed_rationals(
+        0xC621,
+        &matrix_values(&color.color_matrix1),
+    ));
+    if let Some(m) = color.color_matrix2 {
+        entries.push(signed_rationals(0xC622, &matrix_values(&m)));
+    }
+    // Tag: CameraCalibration1/2 (0xC623/0xC624)
+    if let Some(m) = color.calibration1 {
+        entries.push(signed_rationals(0xC623, &matrix_values(&m)));
+    }
+    if let Some(m) = color.calibration2 {
+        entries.push(signed_rationals(0xC624, &matrix_values(&m)));
+    }
+    // Tag: AsShotNeutral (0xC628): camera-native RGB of a neutral subject.
+    if let Some(neutral) = color.as_shot_neutral {
+        entries.push(unsigned_rationals(0xC628, &neutral));
+    }
+    // Tag: NoiseProfile (0xC62F), S/O pairs per colour plane.
+    if let Some(noise) = color.noise_profile {
+        let mut bytes = Vec::with_capacity(48);
+        for value in noise {
+            bytes.extend_from_slice(&value.to_le_bytes());
+        }
+        entries.push(IfdEntry {
+            tag: 0xC62F,
+            field_type: 12, // DOUBLE
+            count: 6,
+            value_or_offset: 0,
+            extra_data: bytes,
+        });
+    }
+    // Tag: ForwardMatrix1/2 (0xC714/0xC715)
+    if let Some(m) = color.forward_matrix1 {
+        entries.push(signed_rationals(0xC714, &matrix_values(&m)));
+    }
+    if let Some(m) = color.forward_matrix2 {
+        entries.push(signed_rationals(0xC715, &matrix_values(&m)));
+    }
+    // Tag: CalibrationIlluminant1/2 (0xC65A/0xC65B)
     entries.push(IfdEntry {
         tag: 0xC65A,
         field_type: 3,
         count: 1,
-        value_or_offset: 21,
+        value_or_offset: color.illuminant1 as u32,
         extra_data: vec![],
     });
-
-    // Tag: ColorMatrix1 (0xC621) = 9 RATIONAL values
-    let mut matrix_bytes = Vec::with_capacity(72);
-    for (num, den) in color_matrix_rationals {
-        matrix_bytes.extend_from_slice(&num.to_le_bytes());
-        matrix_bytes.extend_from_slice(&den.to_le_bytes());
+    if let Some(illuminant2) = color.illuminant2 {
+        entries.push(IfdEntry {
+            tag: 0xC65B,
+            field_type: 3,
+            count: 1,
+            value_or_offset: illuminant2 as u32,
+            extra_data: vec![],
+        });
     }
+    // Tag: ActiveArea (0xC68D) = [top, left, bottom, right]
     entries.push(IfdEntry {
-        tag: 0xC621,
-        field_type: 10,
-        count: 9,
+        tag: 0xC68D,
+        field_type: 4,
+        count: 4,
         value_or_offset: 0,
-        extra_data: matrix_bytes,
+        extra_data: color
+            .active_area
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect(),
     });
 
     // Sort entries by tag ID as required by TIFF / DNG spec
@@ -328,7 +472,7 @@ pub fn write_dng_16bit<P: AsRef<Path>>(
     let written_samples = raw_pixels_16bit.len();
     let total_samples = (width * height) as usize;
     if written_samples < total_samples {
-        let padding_val = black_level as u16;
+        let padding_val = color.black_level[0] as u16;
         for _ in written_samples..total_samples {
             writer.write_all(&padding_val.to_le_bytes())?;
         }

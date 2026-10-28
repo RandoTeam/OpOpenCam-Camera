@@ -17,6 +17,21 @@ creates legal risk.
 - Do not include LUT/EEPROM/calibration/stock APK/vendor `.so` files.
 - User-supplied calibration/LUTs may be supported later, outside the repo.
 
+## Amendment 2026-10-28: colour metadata from the public Camera2 API
+
+The original "generic sRGB D65 matrix" rule was applied by writing an invented
+matrix and omitting `AsShotNeutral`, which made every DNG render with a converter
+fallback (green/cyan casts). That is both incorrect and unnecessary: the sensor's
+colour transform is reported at runtime by the **public** Camera2 API
+(`SENSOR_COLOR_TRANSFORM1/2`, `SENSOR_FORWARD_MATRIX1/2`,
+`SENSOR_REFERENCE_ILLUMINANT1/2`, `SENSOR_BLACK_LEVEL_PATTERN`,
+`SENSOR_NEUTRAL_COLOR_POINT`). Reading it is not redistribution of a vendor
+asset, LUT or calibration file: nothing vendor-specific is bundled, and the
+values describe the device the app is running on.
+
+The decision therefore stands for assets and LUTs, while DNG colour metadata is
+read from the public API and written honestly. See `docs/RAW_COLOUR.md`.
+
 ## Alternatives
 
 1. Publish with a disclaimer: still redistributes derived/proprietary material.
