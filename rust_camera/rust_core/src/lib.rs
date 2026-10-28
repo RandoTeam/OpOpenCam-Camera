@@ -14,6 +14,7 @@ pub mod camera_engine;
 
 pub mod capture_modes;
 pub mod circular_ring_buffer;
+pub mod dng_color;
 pub mod dng_writer;
 pub mod hdr;
 pub mod motion_photo_xmp;

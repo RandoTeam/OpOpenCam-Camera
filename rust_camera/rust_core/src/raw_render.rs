@@ -1,17 +1,18 @@
-//! Neutral Bayer DNG -> JPEG renderer.
+//! DNG -> JPEG renderer.
 //!
 //! This is a deliberately small, deterministic CPU pipeline:
 //!
 //! 1. Parse the little-endian TIFF/DNG IFD0 written by [`crate::dng_writer`].
-//! 2. Normalize the 16-bit CFA samples with the DNG black/white levels.
-//! 3. Estimate a gray-world white balance from the raw CFA means.
+//! 2. Subtract the per-CFA `BlackLevel` and normalise with `WhiteLevel`.
+//! 3. White-balance with `AsShotNeutral` (falling back to gray-world only when
+//!    the tag is absent).
 //! 4. Bilinearly demosaic RGGB/BGGR/GRBG/GBRG.
-//! 5. Apply the DNG orientation, gamma 2.2 and encode JPEG at quality 95.
+//! 5. Convert camera RGB to linear sRGB through the inverse of `ColorMatrix1`
+//!    (pre-multiplied by `CameraCalibration1`), then gamma 2.2 and JPEG.
 //!
-//! There is no AI, no local tone mapping, no sharpening, no lens correction and
-//! no vendor calibration. Colour is therefore neutral but not sensor-accurate;
-//! the public writer only provides a generic sRGB fallback matrix and this
-//! renderer intentionally does not apply it.
+//! There is no AI, no local tone mapping, no sharpening and no lens correction.
+//! Colour comes from the sensor metadata instead of a guess, which is what made
+//! the old gray-world-only renderer show green/cyan casts on RAW 50.
 
 use std::io::Cursor;
 use std::path::Path;
@@ -45,6 +46,19 @@ const TAG_CFA_PATTERN: u16 = 33422;
 const TAG_DNG_VERSION: u16 = 50706;
 const TAG_BLACK_LEVEL: u16 = 50714;
 const TAG_WHITE_LEVEL: u16 = 50717;
+const TAG_COLOR_MATRIX1: u16 = 50721;
+const TAG_CAMERA_CALIBRATION1: u16 = 50723;
+const TAG_AS_SHOT_NEUTRAL: u16 = 50728;
+
+/// D65 white point in XYZ, the reference for sRGB output.
+const XYZ_D65_WHITE: [f64; 3] = [0.950_47, 1.0, 1.088_83];
+
+/// Standard XYZ (D65) -> linear sRGB, the output space of this renderer.
+const XYZ_TO_SRGB: [[f64; 3]; 3] = [
+    [3.240_454_2, -1.537_138_5, -0.498_531_4],
+    [-0.969_266_0, 1.876_010_8, 0.041_556_0],
+    [0.055_643_4, -0.204_025_9, 1.057_225_2],
+];
 
 const PHOTOMETRIC_CFA: u32 = 32803;
 const TIFF_MAGIC: u16 = 42;
@@ -118,10 +132,18 @@ pub struct DngImage {
     pub width: u32,
     pub height: u32,
     pub orientation: u16,
+    /// Scalar black level kept for callers that predate per-CFA levels. It is
+    /// the first phase value.
     pub black_level: u32,
+    /// Per-CFA-phase black levels, ordered like `cfa`.
+    pub black_levels: [f64; 4],
     pub white_level: u32,
     pub cfa: CfaPattern,
     pub dng_version: [u8; 4],
+    /// `AsShotNeutral`: camera-native RGB of a neutral subject, green = 1.
+    pub as_shot_neutral: Option<[f64; 3]>,
+    /// Camera calibration pre-multiplied into the colour matrix, if present.
+    pub color_matrix: Option<[[f64; 3]; 3]>,
     /// Row-major CFA samples in stored (before orientation) order.
     pub pixels: Vec<u16>,
 }
@@ -155,7 +177,7 @@ pub fn render_dng_file<P: AsRef<Path>, Q: AsRef<Path>>(
     let dng = parse_dng(&bytes)?;
     drop(bytes);
 
-    let gains = gray_world_gains(&dng)?;
+    let gains = neutral_gains(&dng).unwrap_or(gray_world_gains(&dng)?);
     let rgb = render_rgb_with_gains(&dng, gains)?;
     let jpeg = encode_jpeg(&rgb, JPEG_QUALITY)?;
 
@@ -299,7 +321,18 @@ pub fn parse_dng(bytes: &[u8]) -> Result<DngImage, RawRenderError> {
         });
     }
 
-    let black_level = optional_scalar_u32(bytes, &entries, TAG_BLACK_LEVEL, "BlackLevel", 0)?;
+    let black_levels = match find(&entries, TAG_BLACK_LEVEL) {
+        Some(entry) if entry.count == 4 => {
+            let values = rational_values(bytes, entry)?;
+            [values[0], values[1], values[2], values[3]]
+        }
+        Some(entry) => {
+            let value = scalar_u32(bytes, entry)? as f64;
+            [value; 4]
+        }
+        None => [0.0; 4],
+    };
+    let black_level = black_levels[0].max(0.0) as u32;
     let white_level = optional_scalar_u32(
         bytes,
         &entries,
@@ -307,11 +340,35 @@ pub fn parse_dng(bytes: &[u8]) -> Result<DngImage, RawRenderError> {
         "WhiteLevel",
         u32::from(u16::MAX),
     )?;
-    if white_level <= black_level {
+    if f64::from(white_level) <= black_levels.iter().copied().fold(f64::MIN, f64::max) {
         return Err(RawRenderError::InvalidTiff(format!(
-            "WhiteLevel ({white_level}) must be greater than BlackLevel ({black_level})"
+            "WhiteLevel ({white_level}) must be greater than BlackLevel ({black_levels:?})"
         )));
     }
+
+    let as_shot_neutral = find(&entries, TAG_AS_SHOT_NEUTRAL)
+        .map(|entry| rational_values(bytes, entry))
+        .transpose()?
+        .and_then(|values| {
+            if values.len() == 3 && values.iter().all(|v| *v > 0.0) {
+                Some([values[0], values[1], values[2]])
+            } else {
+                None
+            }
+        });
+
+    let calibration = find(&entries, TAG_CAMERA_CALIBRATION1)
+        .map(|entry| rational_matrix(bytes, entry))
+        .transpose()?
+        .flatten();
+    let color_matrix = find(&entries, TAG_COLOR_MATRIX1)
+        .map(|entry| rational_matrix(bytes, entry))
+        .transpose()?
+        .flatten()
+        .map(|cm| match calibration {
+            Some(cc) => matrix_multiply(&cc, &cm),
+            None => cm,
+        });
 
     let rows_per_strip = match find(&entries, TAG_ROWS_PER_STRIP) {
         Some(entry) => {
@@ -401,9 +458,12 @@ pub fn parse_dng(bytes: &[u8]) -> Result<DngImage, RawRenderError> {
         height,
         orientation,
         black_level,
+        black_levels,
         white_level,
         cfa,
         dng_version,
+        as_shot_neutral,
+        color_matrix,
         pixels,
     })
 }
@@ -413,7 +473,7 @@ pub fn parse_dng(bytes: &[u8]) -> Result<DngImage, RawRenderError> {
 /// Gray-world white balance, bilinear demosaic, orientation, gamma 2.2 and
 /// clamping happen in this step. No sharpening or tone mapping is applied.
 pub fn render_rgb(image: &DngImage) -> Result<RenderedImage, RawRenderError> {
-    let gains = gray_world_gains(image)?;
+    let gains = neutral_gains(image).unwrap_or(gray_world_gains(image)?);
     render_rgb_with_gains(image, gains)
 }
 
@@ -507,6 +567,7 @@ fn render_rgb_with_gains(
 
     let normalizer = Normalizer::new(image);
     let gamma = gamma_lut();
+    let cam_to_srgb = camera_to_srgb(image);
 
     for output_y in 0..output_height {
         for output_x in 0..output_width {
@@ -519,6 +580,7 @@ fn render_rgb_with_gains(
                 width,
                 height,
                 &gains,
+                cam_to_srgb.as_ref(),
                 &gamma,
             );
             let index = (output_y * output_width + output_x) * 3;
@@ -552,10 +614,10 @@ fn validate_image(image: &DngImage) -> Result<(usize, usize), RawRenderError> {
             image.height
         )));
     }
-    if image.white_level <= image.black_level {
+    if f64::from(image.white_level) <= image.black_levels.iter().copied().fold(f64::MIN, f64::max) {
         return Err(RawRenderError::InvalidTiff(format!(
-            "WhiteLevel ({}) must be greater than BlackLevel ({})",
-            image.white_level, image.black_level
+            "WhiteLevel ({}) must be greater than BlackLevel ({:?})",
+            image.white_level, image.black_levels
         )));
     }
     if !(1..=8).contains(&image.orientation) {
@@ -570,24 +632,25 @@ fn validate_image(image: &DngImage) -> Result<(usize, usize), RawRenderError> {
 
 #[derive(Clone, Copy)]
 struct Normalizer {
-    black: f32,
-    scale: f32,
+    black: [f32; 4],
+    white: f32,
 }
 
 impl Normalizer {
     fn new(image: &DngImage) -> Self {
-        let black = image.black_level as f32;
-        let range = image.white_level as f32 - black;
         Self {
-            black,
-            scale: 1.0 / range,
+            black: image.black_levels.map(|v| v as f32),
+            white: image.white_level as f32,
         }
     }
 
     #[inline]
     fn sample(&self, image: &DngImage, x: usize, y: usize) -> f32 {
         let index = y * image.width as usize + x;
-        ((image.pixels[index] as f32 - self.black) * self.scale).clamp(0.0, 1.0)
+        let phase = ((y & 1) << 1) | (x & 1);
+        let black = self.black[phase];
+        let range = (self.white - black).max(1.0);
+        ((image.pixels[index] as f32 - black) / range).clamp(0.0, 1.0)
     }
 }
 
@@ -634,6 +697,7 @@ fn demosaic_pixel(
     width: usize,
     height: usize,
     gains: &[f32; 3],
+    cam_to_srgb: Option<&[[f64; 3]; 3]>,
     gamma: &[u8],
 ) -> [u8; 3] {
     let center_channel = image.cfa.color_index(x, y);
@@ -678,9 +742,23 @@ fn demosaic_pixel(
         };
     }
 
+    let white_balanced = [
+        f64::from(channels[0] * gains[0]),
+        f64::from(channels[1] * gains[1]),
+        f64::from(channels[2] * gains[2]),
+    ];
+    let linear = match cam_to_srgb {
+        Some(m) => [
+            m[0][0] * white_balanced[0] + m[0][1] * white_balanced[1] + m[0][2] * white_balanced[2],
+            m[1][0] * white_balanced[0] + m[1][1] * white_balanced[1] + m[1][2] * white_balanced[2],
+            m[2][0] * white_balanced[0] + m[2][1] * white_balanced[1] + m[2][2] * white_balanced[2],
+        ],
+        None => white_balanced,
+    };
+
     let mut output = [0u8; 3];
     for channel in 0..3 {
-        let value = (channels[channel] * gains[channel]).clamp(0.0, 1.0);
+        let value = (linear[channel] as f32).clamp(0.0, 1.0);
         let lut_index = (value * f32::from(u16::MAX) + 0.5) as usize;
         output[channel] = gamma[lut_index];
     }
@@ -912,6 +990,157 @@ fn unsigned_values(bytes: &[u8], entry: &IfdEntry) -> Result<Vec<u32>, RawRender
     }
 }
 
+/// Reads RATIONAL/SRATIONAL values as `f64`, preserving sign and fraction.
+fn rational_values(bytes: &[u8], entry: &IfdEntry) -> Result<Vec<f64>, RawRenderError> {
+    if !matches!(entry.field_type, 5 | 10) {
+        return Err(RawRenderError::Unsupported {
+            what: "DNG rational tag",
+            value: format!("field type {} (tag {})", entry.field_type, entry.tag),
+            supported: "RATIONAL or SRATIONAL",
+        });
+    }
+    let data = entry_bytes(bytes, entry)?;
+    let count = entry.count as usize;
+    let mut values = Vec::with_capacity(count);
+    for index in 0..count {
+        let offset = index * 8;
+        let numerator = i32::from_le_bytes([
+            data[offset],
+            data[offset + 1],
+            data[offset + 2],
+            data[offset + 3],
+        ]) as f64;
+        let denominator = i32::from_le_bytes([
+            data[offset + 4],
+            data[offset + 5],
+            data[offset + 6],
+            data[offset + 7],
+        ]) as f64;
+        if denominator == 0.0 {
+            return Err(invalid_tiff(format!(
+                "tag {} has a rational with a zero denominator",
+                entry.tag
+            )));
+        }
+        values.push(numerator / denominator);
+    }
+    Ok(values)
+}
+
+fn rational_matrix(
+    bytes: &[u8],
+    entry: &IfdEntry,
+) -> Result<Option<[[f64; 3]; 3]>, RawRenderError> {
+    let values = rational_values(bytes, entry)?;
+    if values.len() != 9 {
+        return Ok(None);
+    }
+    Ok(Some([
+        [values[0], values[1], values[2]],
+        [values[3], values[4], values[5]],
+        [values[6], values[7], values[8]],
+    ]))
+}
+
+fn matrix_multiply(a: &[[f64; 3]; 3], b: &[[f64; 3]; 3]) -> [[f64; 3]; 3] {
+    let mut out = [[0.0f64; 3]; 3];
+    for row in 0..3 {
+        for col in 0..3 {
+            out[row][col] = (0..3).map(|k| a[row][k] * b[k][col]).sum();
+        }
+    }
+    out
+}
+
+/// Inverts a 3x3 matrix; returns `None` for a singular or near-singular matrix.
+fn invert3(m: &[[f64; 3]; 3]) -> Option<[[f64; 3]; 3]> {
+    let det = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+        - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+        + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+    if det.abs() < 1e-9 {
+        return None;
+    }
+    let inv = 1.0 / det;
+    Some([
+        [
+            (m[1][1] * m[2][2] - m[1][2] * m[2][1]) * inv,
+            (m[0][2] * m[2][1] - m[0][1] * m[2][2]) * inv,
+            (m[0][1] * m[1][2] - m[0][2] * m[1][1]) * inv,
+        ],
+        [
+            (m[1][2] * m[2][0] - m[1][0] * m[2][2]) * inv,
+            (m[0][0] * m[2][2] - m[0][2] * m[2][0]) * inv,
+            (m[0][2] * m[1][0] - m[0][0] * m[1][2]) * inv,
+        ],
+        [
+            (m[1][0] * m[2][1] - m[1][1] * m[2][0]) * inv,
+            (m[0][1] * m[2][0] - m[0][0] * m[2][1]) * inv,
+            (m[0][0] * m[1][1] - m[0][1] * m[1][0]) * inv,
+        ],
+    ])
+}
+
+/// Camera-native RGB -> linear sRGB, built from the DNG colour tags.
+///
+/// `ColorMatrix1` maps XYZ to camera native, so the renderer needs its inverse
+/// followed by the standard XYZ -> sRGB matrix. The inverse alone is not enough:
+/// white-balanced camera RGB has its neutral at (1,1,1), which the inverse maps
+/// to `inv(CM1) * (1,1,1)` rather than to XYZ white. Scaling by the camera
+/// response to D65 (`CM1 * XYZ_D65`) makes neutral land on XYZ D65, which is
+/// what the sRGB output expects. Skipping this step produced a magenta cast.
+fn camera_to_srgb(image: &DngImage) -> Option<[[f64; 3]; 3]> {
+    let camera_from_xyz = image.color_matrix?;
+    let xyz_from_camera = invert3(&camera_from_xyz)?;
+    let white_camera = [
+        camera_from_xyz[0][0] * XYZ_D65_WHITE[0]
+            + camera_from_xyz[0][1] * XYZ_D65_WHITE[1]
+            + camera_from_xyz[0][2] * XYZ_D65_WHITE[2],
+        camera_from_xyz[1][0] * XYZ_D65_WHITE[0]
+            + camera_from_xyz[1][1] * XYZ_D65_WHITE[1]
+            + camera_from_xyz[1][2] * XYZ_D65_WHITE[2],
+        camera_from_xyz[2][0] * XYZ_D65_WHITE[0]
+            + camera_from_xyz[2][1] * XYZ_D65_WHITE[1]
+            + camera_from_xyz[2][2] * XYZ_D65_WHITE[2],
+    ];
+    let scaled = [
+        [
+            xyz_from_camera[0][0] * white_camera[0],
+            xyz_from_camera[0][1] * white_camera[1],
+            xyz_from_camera[0][2] * white_camera[2],
+        ],
+        [
+            xyz_from_camera[1][0] * white_camera[0],
+            xyz_from_camera[1][1] * white_camera[1],
+            xyz_from_camera[1][2] * white_camera[2],
+        ],
+        [
+            xyz_from_camera[2][0] * white_camera[0],
+            xyz_from_camera[2][1] * white_camera[1],
+            xyz_from_camera[2][2] * white_camera[2],
+        ],
+    ];
+    Some(matrix_multiply(&XYZ_TO_SRGB, &scaled))
+}
+
+/// White-balance gains from `AsShotNeutral`, normalised so green is 1.
+///
+/// A neutral subject has camera-space values `AsShotNeutral`, so multiplying a
+/// channel by `1 / neutral[channel]` makes that subject neutral.
+fn neutral_gains(image: &DngImage) -> Option<[f32; 3]> {
+    let neutral = image.as_shot_neutral?;
+    if neutral.iter().any(|v| *v <= 0.0) {
+        return None;
+    }
+    let gains = [
+        (1.0 / neutral[0]).clamp(MIN_WB_GAIN, MAX_WB_GAIN),
+        (1.0 / neutral[1]).clamp(MIN_WB_GAIN, MAX_WB_GAIN),
+        (1.0 / neutral[2]).clamp(MIN_WB_GAIN, MAX_WB_GAIN),
+    ];
+    // Normalise so green is exactly 1; a global scale only changes brightness.
+    let green = gains[1];
+    Some([(gains[0] / green) as f32, 1.0, (gains[2] / green) as f32])
+}
+
 fn entry_bytes<'a>(bytes: &'a [u8], entry: &IfdEntry) -> Result<&'a [u8], RawRenderError> {
     bytes_at(bytes, entry.value_pos, entry.data_len)
 }
@@ -955,6 +1184,8 @@ fn invalid_tiff(message: String) -> RawRenderError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dng_color::{DngColor, SensorColor};
+    use crate::dng_writer::write_dng_16bit;
 
     struct TestDng {
         width: u32,
@@ -1321,6 +1552,53 @@ mod tests {
                 "orientation {orientation}: opposite luma {opposite_luma}"
             );
         }
+    }
+
+    #[test]
+    fn as_shot_neutral_and_color_matrix_are_applied() {
+        // A neutral subject rendered through the metadata path: equal raw
+        // samples plus AsShotNeutral [0.5, 1, 2] must produce R > G > B.
+        let width = 4u32;
+        let height = 4u32;
+        let samples = vec![400u16; 16];
+
+        let mut sensor = SensorColor::generic(64, 1023);
+        sensor.active_area = [0, 0, width, height];
+        sensor.pixel_array = [width, height];
+        // Camera native == sRGB, so XYZ_TO_SRGB * inverse(ColorMatrix1) is the
+        // identity and the test observes white balance only.
+        sensor.color_matrix1 = XYZ_TO_SRGB;
+        let color = DngColor::from_capture(&sensor, None, Some([0.5, 1.0, 2.0]), width, height);
+
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock should be after the epoch")
+            .as_nanos();
+        let directory = std::env::temp_dir().join(format!(
+            "opopencam-raw-colour-{}-{unique}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&directory).expect("temp directory should be creatable");
+        let input = directory.join("colour.dng");
+        write_dng_16bit(&input, width, height, &samples, "test", 1, &color)
+            .expect("DNG should be writable");
+
+        let dng = parse_dng(&std::fs::read(&input).expect("DNG should be readable"))
+            .expect("DNG should parse");
+        std::fs::remove_dir_all(&directory).expect("temp directory should be removable");
+
+        assert_eq!(dng.as_shot_neutral, Some([0.5, 1.0, 2.0]));
+        let gains = neutral_gains(&dng).expect("neutral gains should be derived");
+        assert!((gains[0] - 2.0).abs() < 1e-3, "{gains:?}");
+        assert!((gains[1] - 1.0).abs() < 1e-6, "{gains:?}");
+        assert!((gains[2] - 0.5).abs() < 1e-3, "{gains:?}");
+
+        let rendered = render_rgb(&dng).expect("DNG should render");
+        let pixel = &rendered.data[..3];
+        assert!(
+            pixel[0] > pixel[1] && pixel[1] > pixel[2],
+            "expected R > G > B after AsShotNeutral, got {pixel:?}"
+        );
     }
 
     #[test]

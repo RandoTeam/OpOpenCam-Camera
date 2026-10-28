@@ -11,6 +11,46 @@ All notable changes to the OpOpenCam Rust camera are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.7-beta.1] ? 2026-10-28
+
+### Fixed
+
+- RAW colour is now described by the real sensor instead of a generic sRGB
+  guess. The DNG writer reads `SENSOR_COLOR_TRANSFORM1/2`,
+  `SENSOR_FORWARD_MATRIX1/2`, `SENSOR_CALIBRATION_TRANSFORM1/2`,
+  `SENSOR_REFERENCE_ILLUMINANT1/2`, `SENSOR_BLACK_LEVEL_PATTERN`,
+  `SENSOR_INFO_WHITE_LEVEL`, `SENSOR_INFO_ACTIVE_ARRAY_SIZE` and the CFA
+  arrangement from Camera2 characteristics, and `SENSOR_NEUTRAL_COLOR_POINT`
+  (falling back to `COLOR_CORRECTION_GAINS`) from the capture result.
+- The DNG now carries `AsShotNeutral`, `ColorMatrix1/2`, `ForwardMatrix1/2`,
+  `CameraCalibration1/2`, `CalibrationIlluminant1/2`, a four-value `BlackLevel`
+  with `BlackLevelRepeatDim`, `ActiveArea`, `DefaultCropOrigin/Size`,
+  `DefaultScale`, `CFAPlaneColor` and `CFALayout`. Verified tag-for-tag against
+  the stock camera's own DNG (54 vs 35 entries, same values and types).
+- The in-app DNG renderer uses `AsShotNeutral`, the inverse `ColorMatrix1`
+  (pre-multiplied by `CameraCalibration1`), per-CFA black levels and the XYZ D65
+  white scaling. Gray-world white balance is now only a fallback for files that
+  carry no colour tags. This removes the green/cyan cast visible in the gallery.
+
+### Root cause
+
+The public repository never wrote correct RAW colour metadata: the root commit
+already emitted a fake sRGB `ColorMatrix1` with no `AsShotNeutral`, as required
+by ADR 0005 ("replace the vendor DNG ColorMatrix with a generic sRGB D65
+matrix"), and the renderer always used gray-world white balance. This was not a
+regression from a working state.
+
+### Verified on device
+
+- RAW 50: `AsShotNeutral [0.5908, 1.0, 0.4814]`, `BlackLevel 64x4`,
+  `ActiveArea [0,0,6144,8192]`, crop `8,8 + 8176x6128`; libraw reads
+  `camera_wb [1.69, 1.0, 2.08]` and builds a non-identity colour matrix.
+- RAW 12: crop `8,8 + 4080x3056`, gains `[1.646, 1.0, 2.147]`, app and libraw
+  renders agree; white surfaces measure R/G 0.95-0.98 and B/G 0.84-0.91 under
+  warm room light, with no green cast.
+- CFA stays RGGB for both streams, confirmed by the stock DNG (`[0,1,1,2]`) and
+  by the earlier in-scene phase measurement.
+
 ## [0.5.6-beta.1] ? 2026-10-28
 
 ### Fixed
