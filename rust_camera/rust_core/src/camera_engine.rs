@@ -22,6 +22,7 @@ use log::{info, warn};
 use ndk_sys as sys;
 
 use crate::capture_modes::CaptureMode;
+use crate::dng_color::{read_sensor_color, DngColor, SensorColor};
 use crate::dng_writer::write_dng_16bit;
 use crate::hdr::{encode_jpeg, exposure_fusion_aligned, rotate90_cw, yuv420_to_rgb, YuvFrame};
 use crate::sensors::{
@@ -45,6 +46,62 @@ const TAG_AWB_MODE: u32 = 65547;
 const TAG_ZOOM_RATIO: u32 = 65583;
 const TAG_JPEG_QUALITY: u32 = 458756;
 const TAG_JPEG_ORIENTATION: u32 = 458755;
+
+/// `android.colorCorrection.gains` in the capture result: R, G-even, G-odd, B.
+const TAG_COLOR_CORRECTION_GAINS: u32 = 2;
+/// `android.sensor.neutralColorPoint`: camera-space RGB of a neutral subject.
+const TAG_SENSOR_NEUTRAL_COLOR_POINT: u32 = 917522;
+const METADATA_TYPE_RATIONAL: u8 = 5;
+const METADATA_TYPE_FLOAT: u8 = 2;
+
+/// Per-capture metadata collected from the capture result callback.
+///
+/// The HAL reports the white balance it actually applied to this frame here;
+/// without it a DNG has no `AsShotNeutral` and every converter has to guess.
+struct CaptureStats {
+    gains: Mutex<Option<[f32; 4]>>,
+    neutral: Mutex<Option<[f32; 3]>>,
+}
+
+impl CaptureStats {
+    fn new() -> Self {
+        Self {
+            gains: Mutex::new(None),
+            neutral: Mutex::new(None),
+        }
+    }
+
+    fn take_gains(&self) -> Option<[f32; 4]> {
+        *self.gains.lock().ok()?
+    }
+
+    fn take_neutral(&self) -> Option<[f32; 3]> {
+        *self.neutral.lock().ok()?
+    }
+
+    fn clear(&self) {
+        if let Ok(mut g) = self.gains.lock() {
+            *g = None;
+        }
+        if let Ok(mut n) = self.neutral.lock() {
+            *n = None;
+        }
+    }
+
+    /// Waits briefly for the result callback, which can land just after the
+    /// image buffer. Returns `None` instead of blocking the shutter.
+    fn wait_for_result(&self, timeout: Duration) -> (Option<[f32; 4]>, Option<[f32; 3]>) {
+        let deadline = Instant::now() + timeout;
+        loop {
+            let gains = self.take_gains();
+            let neutral = self.take_neutral();
+            if gains.is_some() || neutral.is_some() || Instant::now() >= deadline {
+                return (gains, neutral);
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
+}
 
 const AE_MODE_ON: u8 = 1;
 const AF_MODE_CONTINUOUS_PICTURE: u8 = 4;
@@ -209,6 +266,12 @@ pub struct CameraEngine {
     video_active: bool,
     camera_id: String,
     running: bool,
+    /// Static colour description of the sensor, read once per session. `None`
+    /// when the HAL exposes no colour transform; the writer then falls back to
+    /// the generic sRGB assumption and says so in the log.
+    sensor_color: Option<SensorColor>,
+    stats: Arc<CaptureStats>,
+    stats_ptr: *mut c_void,
 }
 
 // All access goes through the JNI bridge mutex; raw NDK pointers are only used
@@ -230,6 +293,7 @@ impl CameraEngine {
             frames: Mutex::new(Vec::new()),
             cv: Condvar::new(),
         });
+        let stats = Arc::new(CaptureStats::new());
 
         // The front sensor's native binned still is 3280x2464; requesting a
         // 4096x3072 JPEG fails. Keep the rear modes untouched.
@@ -271,6 +335,9 @@ impl CameraEngine {
             video_active: false,
             camera_id: camera_id.to_string(),
             running: false,
+            sensor_color: None,
+            stats_ptr: Arc::as_ptr(&stats) as *mut c_void,
+            stats,
         };
 
         if let Err(e) = unsafe { engine.open(camera_id) } {
@@ -300,6 +367,7 @@ impl CameraEngine {
             frames: Mutex::new(Vec::new()),
             cv: Condvar::new(),
         });
+        let stats = Arc::new(CaptureStats::new());
         let mut engine = Self {
             manager: ptr::null_mut(),
             device: ptr::null_mut(),
@@ -333,6 +401,9 @@ impl CameraEngine {
             video_active: true,
             camera_id: camera_id.to_string(),
             running: false,
+            sensor_color: None,
+            stats_ptr: Arc::as_ptr(&stats) as *mut c_void,
+            stats,
         };
         if let Err(e) = unsafe { engine.open(camera_id) } {
             engine.shutdown();
@@ -347,6 +418,22 @@ impl CameraEngine {
             return Err("ACameraManager_create returned null".into());
         }
         info!("Camera2 NDK: manager created");
+
+        self.sensor_color = read_sensor_color(self.manager, camera_id);
+        match &self.sensor_color {
+            Some(c) => info!(
+                "Camera2 NDK: sensor colour CFA={:?} black={:?} white={} active={:?} illum1={} illum2={} CM1={:?} illumFwd={:?}",
+                c.cfa_pattern,
+                c.black_level,
+                c.white_level,
+                c.active_area,
+                c.illuminant1,
+                c.illuminant2,
+                c.color_matrix1,
+                c.forward_matrix1
+            ),
+            None => warn!("Camera2 NDK: sensor colour unavailable, using generic sRGB tags"),
+        }
 
         let c_id = CString::new(camera_id).map_err(|e| e.to_string())?;
         let mut device_callbacks = sys::ACameraDevice_StateCallbacks {
@@ -773,9 +860,21 @@ impl CameraEngine {
         requests: &mut [*mut sys::ACaptureRequest],
     ) -> Result<(), String> {
         let mut seq = 0;
+        // Ask for the capture result so the DNG can carry the white balance the
+        // HAL actually used for this frame (COLOR_CORRECTION_GAINS).
+        let mut callbacks = sys::ACameraCaptureSession_captureCallbacks {
+            context: self.stats_ptr,
+            onCaptureStarted: None,
+            onCaptureProgressed: None,
+            onCaptureCompleted: Some(Self::on_capture_completed),
+            onCaptureFailed: None,
+            onCaptureSequenceCompleted: None,
+            onCaptureSequenceAborted: None,
+            onCaptureBufferLost: None,
+        };
         let status = sys::ACameraCaptureSession_capture(
             self.session,
-            ptr::null_mut(),
+            &mut callbacks,
             requests.len() as i32,
             requests.as_mut_ptr(),
             &mut seq,
@@ -789,6 +888,81 @@ impl CameraEngine {
             return Err(format!("capture failed with status {}", status.0));
         }
         Ok(())
+    }
+
+    /// Reads a numeric metadata entry as `f32`, accepting both RATIONAL and
+    /// FLOAT. The OnePlus HAL reports `COLOR_CORRECTION_GAINS` as FLOAT even
+    /// though the NDK documents RATIONAL, so both must be handled.
+    unsafe fn metadata_floats(
+        result: *const sys::ACameraMetadata,
+        tag: u32,
+        min_count: u32,
+    ) -> Option<Vec<f32>> {
+        let mut entry: sys::ACameraMetadata_const_entry = std::mem::zeroed();
+        let status = sys::ACameraMetadata_getConstEntry(result, tag, &mut entry);
+        if status.0 != 0 || entry.count < min_count {
+            return None;
+        }
+        match entry.type_ {
+            METADATA_TYPE_RATIONAL if !entry.data.r.is_null() => Some(
+                (0..entry.count as usize)
+                    .map(|i| {
+                        let r = *entry.data.r.add(i);
+                        if r.denominator == 0 {
+                            0.0
+                        } else {
+                            r.numerator as f32 / r.denominator as f32
+                        }
+                    })
+                    .collect(),
+            ),
+            METADATA_TYPE_FLOAT if !entry.data.f.is_null() => Some(
+                (0..entry.count as usize)
+                    .map(|i| *entry.data.f.add(i))
+                    .collect(),
+            ),
+            _ => None,
+        }
+    }
+
+    /// Records the white balance metadata of a still capture result.
+    unsafe extern "C" fn on_capture_completed(
+        context: *mut c_void,
+        _session: *mut sys::ACameraCaptureSession,
+        _request: *mut sys::ACaptureRequest,
+        result: *const sys::ACameraMetadata,
+    ) {
+        if context.is_null() || result.is_null() {
+            return;
+        }
+        let stats = &*(context as *const CaptureStats);
+
+        if let Some(g) = Self::metadata_floats(result, TAG_COLOR_CORRECTION_GAINS, 3) {
+            let mut gains = [1.0f32; 4];
+            for (i, slot) in gains.iter_mut().enumerate().take(g.len()) {
+                *slot = g[i];
+            }
+            if gains[1] <= 0.0 {
+                gains[1] = 1.0;
+            }
+            if gains[2] <= 0.0 {
+                gains[2] = gains[1];
+            }
+            if let Ok(mut slot) = stats.gains.lock() {
+                *slot = Some(gains);
+            }
+            info!("Camera2 NDK: capture result WB gains {:?}", gains);
+        }
+        if let Some(n) = Self::metadata_floats(result, TAG_SENSOR_NEUTRAL_COLOR_POINT, 3) {
+            let neutral = [n[0], n[1], n[2]];
+            if let Ok(mut slot) = stats.neutral.lock() {
+                *slot = Some(neutral);
+            }
+            info!(
+                "Camera2 NDK: capture result neutral color point {:?}",
+                neutral
+            );
+        }
     }
 
     fn clear_still_frames(&self) {
@@ -890,12 +1064,18 @@ impl CameraEngine {
     // RAW 12 and RAW 50, so no override is needed today.
     fn capture_raw(&mut self, path: &str, _mode: CaptureMode) -> Result<(), String> {
         self.clear_still_frames();
+        self.stats.clear();
         let request = unsafe { self.create_still_request()? };
         unsafe {
             let mut requests = [request];
             self.submit_requests(&mut requests)?;
         }
         let frames = self.wait_for_frames(1, CAPTURE_TIMEOUT)?;
+        let (gains, neutral) = self.stats.wait_for_result(Duration::from_millis(500));
+        info!(
+            "Camera2 NDK: AWB gains {:?}, neutral {:?} for this RAW frame",
+            gains, neutral
+        );
         let frame = &frames[0];
         let width = frame.width.max(0) as usize;
         let height = frame.height.max(0) as usize;
@@ -924,22 +1104,27 @@ impl CameraEngine {
             }
         }
         let orientation = self.dng_orientation;
-        // Measured on the device in one scene: RAW 12 and RAW 50 both have
-        // phase0 > phase3 with symmetric greens, and RAW 12 is RGGB. So the
-        // 50 MP remosaic is RGGB as well; an earlier BGGR hypothesis was
-        // refuted. The pattern stays a parameter so a future per-mode value can
-        // be passed without touching the writer.
-        let cfa_pattern: [u8; 4] = [0, 1, 1, 2]; // RGGB
+        let sensor = self
+            .sensor_color
+            .clone()
+            .unwrap_or_else(|| SensorColor::generic(RAW_BLACK_LEVEL, RAW_WHITE_LEVEL_10BIT));
+        let color = DngColor::from_capture(&sensor, gains, neutral, width as u32, height as u32);
+        info!(
+            "Camera2 NDK: DNG colour neutral={:?} black={:?} crop origin={:?} size={:?} cfa={:?}",
+            color.as_shot_neutral,
+            color.black_level,
+            color.crop_origin,
+            color.crop_size,
+            color.cfa_pattern
+        );
         write_dng_16bit(
             path,
             width as u32,
             height as u32,
             &pixels,
             "OnePlus 13",
-            RAW_BLACK_LEVEL,
-            RAW_WHITE_LEVEL_10BIT,
             orientation,
-            cfa_pattern,
+            &color,
         )
         .map_err(|e| format!("write DNG {}: {}", path, e))?;
         info!("Camera2 NDK: saved DNG {}x{} to {}", width, height, path);
